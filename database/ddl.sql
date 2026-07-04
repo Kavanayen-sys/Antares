@@ -1,5 +1,6 @@
 CREATE DATABASE IF NOT EXISTS sigeru
-
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_0900_ai_ci;
 
 USE sigeru;
 
@@ -106,7 +107,7 @@ CREATE TABLE contenedor (
 
 CREATE TABLE contenedordomiciliario (
     idCon INT NOT NULL,
-    numPuerta INT(30) NOT NULL,
+    numPuerta VARCHAR(30) NOT NULL,
     PRIMARY KEY (idCon),
     CONSTRAINT fk_cd_contenedor FOREIGN KEY (idCon) REFERENCES contenedor(idCon)
 ) ENGINE=InnoDB;
