@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ingresar | SiGeRU</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="fondo-formulario">
+    <main class="tarjeta-formulario">
+        <a class="marca" href="index.html">SiGeRU</a>
+        <p>Sistema de Gestión de Residuos Urbanos</p>
+
+        <h1>Iniciar sesión</h1>
+        <form id="form-login">
+            <label for="email">Correo</label>
+            <input id="email" name="email" type="email" autocomplete="email" required>
+
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" minlength="6" required>
+
+            <button class="boton ancho" type="submit">Ingresar</button>
+            <p class="mensaje" id="mensaje-login" aria-live="polite"></p>
+        </form>
+
+        <div class="datos-prueba">
+            <b>Usuario de prueba</b>
+            <span>admin@sigeru.local / admin123</span>
+            <button type="button" id="completar-prueba">Completar datos</button>
+        </div>
+        <p class="enlace-formulario">¿No tenés cuenta? <a href="registro.html">Registrate</a></p>
+    </main>
+</body>
+</html>
