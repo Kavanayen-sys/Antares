@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel | SiGeRU</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="panel">
+    <header class="panel-cabecera">
+        <b>SiGeRU</b>
+        <span>Administrador SiGeRU</span>
+        <button type="button" id="cerrar-sesion">Salir</button>
+    </header>
+
+    <aside class="panel-menu">
+        <button class="activo" type="button" data-seccion="resumen">Reportes</button>
+        <button type="button" data-seccion="usuarios">Usuarios</button>
+        <button type="button" data-seccion="contenedores">Contenedores</button>
+        <button type="button" data-seccion="camiones">Camiones</button>
+        <button type="button" data-seccion="incidencias">Incidencias</button>
+    </aside>
+
+    <main class="panel-contenido">
+        <p class="mensaje panel-mensaje" id="mensaje-panel" aria-live="polite"></p>
+
+        <section class="seccion-panel activa" id="seccion-resumen">
+            <h1>Reportes básicos</h1>
+            <div class="indicadores">
+                <article><span>Usuarios</span><b id="cantidad-usuarios">0</b></article>
+                <article><span>Contenedores</span><b id="cantidad-contenedores">0</b></article>
+                <article><span>Camiones</span><b id="cantidad-camiones">0</b></article>
+                <article><span>Incidencias</span><b id="cantidad-incidencias">0</b></article>
+            </div>
+            <p>Los datos mostrados se consultan desde MySQL mediante las APIs.</p>
+        </section>
+    </main>
+</body>
+</html>
