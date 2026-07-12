@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reportar incidencia | SiGeRU</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="fondo-formulario">
+    <main class="tarjeta-formulario tarjeta-ancha">
+        <a class="marca" href="index.html">SiGeRU</a>
+        <p>Reporte de problemas en contenedores</p>
+
+        <h1>Reportar incidencia</h1>
+        <form id="form-incidencia">
+            <label for="id-contenedor">ID del contenedor</label>
+            <select id="id-contenedor" name="idCon" required>
+                <option value="">Cargando contenedores...</option>
+            </select>
+            <small>La lista se obtiene directamente de la base de datos.</small>
+
+            <label for="documento">Cédula</label>
+<input id="documento" name="documento" maxlength="12" inputmode="numeric" required>
+<small>Se guarda como un hash, no como texto legible.</small>
+
+<div class="dos-columnas">
+
+    <div class="campo">
+        <label for="tipo">Problema</label>
+        <select id="tipo" name="tipo" required>
+            <option value="">Seleccionar</option>
+            <option value="roto">Roto</option>
+            <option value="desbordado">Desbordado</option>
+            <option value="incendiado">Quemado o incendiado</option>
+            <option value="basura alrededor">Basura alrededor</option>
+        </select>
+    </div>
+
+    <div class="campo">
+        <label for="descripcion">Descripción</label>
+        <textarea
+            id="descripcion"
+            name="descripcion"
+            maxlength="200"
+            rows="5"
+            required></textarea>
+    </div>
+
+</div>
+
+<button class="boton ancho" type="submit">
+    Enviar reporte
+</button>
+
+<p class="mensaje" id="mensaje-incidencia" aria-live="polite"></p>
+        <p class="enlace-formulario"><a href="index.html">Volver al inicio</a></p>
+    </main>
+    <script src="js/api.js"></script>
+    <script src="js/incidencia.js"></script>
+</body>
+</html>
