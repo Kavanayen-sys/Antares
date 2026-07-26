@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel | SiGeRU</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="panel">
+    <header class="panel-cabecera">
+        <b>SiGeRU</b>
+        <span>Administrador SiGeRU</span>
+        <button type="button" id="cerrar-sesion">Salir</button>
+    </header>
+
+    <aside class="panel-menu">
+        <button class="activo" type="button" data-seccion="resumen">Reportes</button>
+        <button type="button" data-seccion="usuarios">Usuarios</button>
+        <button type="button" data-seccion="contenedores">Contenedores</button>
+        <button type="button" data-seccion="camiones">Camiones</button>
+        <button type="button" data-seccion="incidencias">Incidencias</button>
+    </aside>
+
+    <main class="panel-contenido">
+        <p class="mensaje panel-mensaje" id="mensaje-panel" aria-live="polite"></p>
+
+        <section class="seccion-panel activa" id="seccion-resumen">
+            <h1>Reportes básicos</h1>
+            <div class="indicadores">
+                <article><span>Usuarios</span><b id="cantidad-usuarios">0</b></article>
+                <article><span>Contenedores</span><b id="cantidad-contenedores">0</b></article>
+                <article><span>Camiones</span><b id="cantidad-camiones">0</b></article>
+                <article><span>Incidencias</span><b id="cantidad-incidencias">0</b></article>
+            </div>
+            <p>Los datos mostrados se consultan desde MySQL mediante las APIs.</p>
+        </section>
+
+        <section class="seccion-panel" id="seccion-usuarios">
+            <div class="titulo-seccion">
+                <div><h1>Usuarios</h1><p>Alta, modificación y baja de usuarios.</p></div>
+                <button class="boton" type="button" data-nuevo="usuario">Nuevo usuario</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-usuarios"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-usuario" hidden>
+                <h2 id="titulo-form-usuario">Nuevo usuario</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Nombre<input name="nombre" maxlength="50" required></label>
+                    <label>Teléfono<input name="telefono" maxlength="20" required></label>
+                    <label>Correo<input name="email" type="email" maxlength="100" required></label>
+                    <label>Rol
+                        <select name="rol" required>
+                            <option value="administrador">Administrador</option>
+                            <option value="municipal">Municipal</option>
+                            <option value="cuadrilla">Cuadrilla</option>
+                            <option value="operario">Operario</option>
+                        </select>
+                    </label>
+                    <label>Estado
+                        <select name="estado" required>
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
+                        </select>
+                    </label>
+                    <label>Contraseña
+                        <input name="password" type="password" minlength="6">
+                        <small>Obligatoria al crear; opcional al editar.</small>
+                    </label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="seccion-panel" id="seccion-contenedores">
+            <div class="titulo-seccion">
+                <div><h1>Contenedores</h1><p>Alta, modificación y baja de contenedores.</p></div>
+                <button class="boton" type="button" data-nuevo="contenedor">Nuevo contenedor</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Ubicación</th><th>Zona</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-contenedores"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-contenedor" hidden>
+                <h2 id="titulo-form-contenedor">Nuevo contenedor</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Capacidad (litros)<input name="capacidad" type="number" min="1" required></label>
+                    <label>Calle<input name="calle" maxlength="100" required></label>
+                    <label>Esquina<input name="esquina" maxlength="100" required></label>
+                    <label>Zona
+                        <select name="zona" required>
+                            <option>Municipio A</option><option>Municipio B</option>
+                            <option>Municipio C</option><option>Municipio CH</option>
+                            <option>Municipio D</option><option>Municipio E</option>
+                            <option>Municipio F</option><option>Municipio G</option>
+                        </select>
+                    </label>
+                    <label>Tipo
+                        <select name="tipo" required>
+                            <option value="comun">Común</option><option value="aceite">Aceite</option>
+                            <option value="electronicos">Electrónicos</option><option value="vidrio">Reciclables</option>
+                        </select>
+                    </label>
+                    <label>Estado
+                        <select name="estado" required>
+                            <option value="activo">Activo</option><option value="inactivo">Inactivo</option>
+                        </select>
+                    </label>
+                    <label class="casilla"><input name="repuesto" type="checkbox"> Es de repuesto</label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="seccion-panel" id="seccion-camiones">
+            <div class="titulo-seccion">
+                <div><h1>Camiones</h1><p>Alta, modificación y baja de camiones.</p></div>
+                <button class="boton" type="button" data-nuevo="camion">Nuevo camión</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Matrícula</th><th>Marca y modelo</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-camiones"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-camion" hidden>
+                <h2 id="titulo-form-camion">Nuevo camión</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Matrícula<input name="matricula" maxlength="10" required></label>
+                    <label>Marca<input name="marca" maxlength="50" required></label>
+                    <label>Modelo<input name="modelo" maxlength="50" required></label>
+                    <label>Capacidad (kg)<input name="capacidad" type="number" min="1" required></label>
+                    <label>Tipo
+                        <select name="tipo" required>
+                            <option value="comunitario">Comunitario</option>
+                            <option value="intradomiciliario">Intradomiciliario</option>
+                            <option value="limpieza">Limpieza</option>
+                            <option value="centroAcopio">Centro de acopio</option>
+                        </select>
+                    </label>
+                    <label>Estado
+                        <select name="estado" required>
+                            <option value="disponible">Disponible</option>
+                            <option value="en uso">En uso</option>
+                            <option value="roto">Roto</option>
+                        </select>
+                    </label>
+                    <label class="casilla"><input name="repuesto" type="checkbox"> Es de repuesto</label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="seccion-panel" id="seccion-incidencias">
+            <div class="titulo-seccion">
+                <div><h1>Incidencias</h1><p>Reportes recibidos desde el formulario público.</p></div>
+                <a class="boton" href="incidencia.html">Nueva incidencia</a>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Contenedor</th><th>Problema</th><th>Reportante</th><th>Teléfono</th><th>Prioridad</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-incidencias"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/panel.js"></script>
+</body>
+</html>
