@@ -13,18 +13,30 @@ class GestionModel
         $this->conexion = conectarBase();
     }
 
+    // =========================================================
+    // CONTENEDORES
+    // =========================================================
+
     public function listarContenedores(): array
     {
         $sql = 'SELECT idCon, capacidad, calle, esquina, zona, estCon, tipoCon, repuesto
-                FROM contenedor ORDER BY idCon';
+                FROM contenedor
+                ORDER BY idCon';
+
         return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
     }
 
     public function obtenerContenedor(int $id): ?array
     {
-        $stmt = $this->conexion->prepare('SELECT * FROM contenedor WHERE idCon = ?');
+        $stmt = $this->conexion->prepare(
+            'SELECT *
+             FROM contenedor
+             WHERE idCon = ?'
+        );
+
         $stmt->bind_param('i', $id);
         $stmt->execute();
+
         return $stmt->get_result()->fetch_assoc() ?: null;
     }
 
@@ -32,9 +44,10 @@ class GestionModel
     {
         $stmt = $this->conexion->prepare(
             'INSERT INTO contenedor
-             (capacidad, calle, esquina, zona, estCon, tipoCon, repuesto)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            (capacidad, calle, esquina, zona, estCon, tipoCon, repuesto)
+            VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
+
         $stmt->bind_param(
             'dsssssi',
             $datos['capacidad'],
@@ -45,19 +58,30 @@ class GestionModel
             $datos['tipo'],
             $datos['repuesto']
         );
+
         $stmt->execute();
-        return $this->obtenerContenedor($this->conexion->insert_id);
+
+        return $this->obtenerContenedor(
+            (int) $this->conexion->insert_id
+        );
     }
 
     public function actualizarContenedor(int $id, array $datos): ?array
     {
         $stmt = $this->conexion->prepare(
             'UPDATE contenedor
-             SET capacidad = ?, calle = ?, esquina = ?, zona = ?, estCon = ?, tipoCon = ?, repuesto = ?
+             SET capacidad = ?,
+                 calle = ?,
+                 esquina = ?,
+                 zona = ?,
+                 estCon = ?,
+                 tipoCon = ?,
+                 repuesto = ?
              WHERE idCon = ?'
         );
+
         $stmt->bind_param(
-            'dsssssii',
+            'dssssssi',
             $datos['capacidad'],
             $datos['calle'],
             $datos['esquina'],
@@ -67,127 +91,201 @@ class GestionModel
             $datos['repuesto'],
             $id
         );
+
         $stmt->execute();
+
         return $this->obtenerContenedor($id);
     }
 
     public function eliminarContenedor(int $id): bool
     {
-        $stmt = $this->conexion->prepare('DELETE FROM contenedor WHERE idCon = ?');
+        $stmt = $this->conexion->prepare(
+            'DELETE FROM contenedor
+             WHERE idCon = ?'
+        );
+
         $stmt->bind_param('i', $id);
         $stmt->execute();
+
         return $stmt->affected_rows > 0;
     }
 
-    public function listarCamiones(): array
+
+    // =========================================================
+    // VEHICULOS
+    // =========================================================
+
+    public function listarVehi(): array
     {
-        $sql = 'SELECT idCamion, tipoCamion, matricula, marca, modelo, capacidad, estCamion, repuesto
-                FROM camion ORDER BY idCamion';
+        $sql = 'SELECT idVehi,
+                       tipoVehi,
+                       matriculaVehi,
+                       marcaVehi,
+                       modeloVehi,
+                       capVehi,
+                       estVehi
+                FROM vehiculo
+                ORDER BY idVehi';
+
         return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
     }
 
-    public function obtenerCamion(int $id): ?array
+    public function obtenerVehi(int $id): ?array
     {
-        $stmt = $this->conexion->prepare('SELECT * FROM camion WHERE idCamion = ?');
+        $stmt = $this->conexion->prepare(
+            'SELECT *
+             FROM vehiculo
+             WHERE idVehi = ?'
+        );
+
         $stmt->bind_param('i', $id);
         $stmt->execute();
+
         return $stmt->get_result()->fetch_assoc() ?: null;
     }
 
-    public function matriculaExiste(string $matricula, int $ignorarId = 0): bool
-    {
+    public function matriculaExiste(
+        string $matriculaVehi,
+        int $ignorarId = 0
+    ): bool {
         $stmt = $this->conexion->prepare(
-            'SELECT idCamion FROM camion WHERE matricula = ? AND idCamion <> ? LIMIT 1'
+            'SELECT idVehi
+             FROM vehiculo
+             WHERE matriculaVehi = ?
+             AND idVehi <> ?
+             LIMIT 1'
         );
-        $stmt->bind_param('si', $matricula, $ignorarId);
+
+        $stmt->bind_param(
+            'si',
+            $matriculaVehi,
+            $ignorarId
+        );
+
         $stmt->execute();
+
         return $stmt->get_result()->num_rows > 0;
     }
 
-    public function crearCamion(array $datos): array
+    public function crearVehi(array $datos): array
     {
         $stmt = $this->conexion->prepare(
-            'INSERT INTO camion
-             (tipoCamion, matricula, marca, modelo, capacidad, estCamion, repuesto)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO vehiculo
+            (tipoVehi, matriculaVehi, marcaVehi, modeloVehi, capVehi, estVehi)
+            VALUES (?, ?, ?, ?, ?, ?)'
         );
+
         $stmt->bind_param(
-            'ssssdsi',
+            'ssssds',
             $datos['tipo'],
             $datos['matricula'],
             $datos['marca'],
             $datos['modelo'],
             $datos['capacidad'],
-            $datos['estado'],
-            $datos['repuesto']
+            $datos['estado']
         );
+
         $stmt->execute();
-        return $this->obtenerCamion($this->conexion->insert_id);
+
+        return $this->obtenerVehi(
+            (int) $this->conexion->insert_id
+        );
     }
 
-    public function actualizarCamion(int $id, array $datos): ?array
-    {
+    public function actualizarVehiculo(
+        int $id,
+        array $datos
+    ): ?array {
         $stmt = $this->conexion->prepare(
-            'UPDATE camion
-             SET tipoCamion = ?, matricula = ?, marca = ?, modelo = ?, capacidad = ?, estCamion = ?, repuesto = ?
-             WHERE idCamion = ?'
+            'UPDATE vehiculo
+             SET tipoVehi = ?,
+                 matriculaVehi = ?,
+                 marcaVehi = ?,
+                 modeloVehi = ?,
+                 capVehi = ?,
+                 estVehi = ?
+             WHERE idVehi = ?'
         );
+
         $stmt->bind_param(
-            'ssssdsii',
+            'ssssssi',
             $datos['tipo'],
             $datos['matricula'],
             $datos['marca'],
             $datos['modelo'],
             $datos['capacidad'],
             $datos['estado'],
-            $datos['repuesto'],
             $id
         );
+
         $stmt->execute();
-        return $this->obtenerCamion($id);
+
+        return $this->obtenerVehi($id);
     }
 
-    public function eliminarCamion(int $id): bool
+    public function eliminarVehiculo(int $id): bool
     {
-        $stmt = $this->conexion->prepare('DELETE FROM camion WHERE idCamion = ?');
+        $stmt = $this->conexion->prepare(
+            'DELETE FROM vehiculo
+             WHERE idVehi = ?'
+        );
+
         $stmt->bind_param('i', $id);
         $stmt->execute();
+
         return $stmt->affected_rows > 0;
     }
 
+
+    // =========================================================
+    // INCIDENCIAS
+    // =========================================================
+
     public function listarIncidencias(): array
     {
-        $sql = 'SELECT i.idIncidencia, i.fchInci, i.idCon, i.tipoInci, i.descInci,
-                       i.nomReporte, i.telReporte, i.prioridad,
-                       CONCAT(c.calle, " y ", c.esquina) AS ubicacion
+        $sql = 'SELECT
+                    i.idInci,
+                    i.fchaInci,
+                    i.idCon,
+                    i.tipoInci,
+                    i.descInci,
+                    i.cedHashInci,
+                    i.prioridad,
+                    CONCAT(c.calle, " y ", c.esquina) AS ubicacion
                 FROM incidencia i
-                INNER JOIN contenedor c ON c.idCon = i.idCon
-                ORDER BY i.idIncidencia DESC';
+                INNER JOIN contenedor c
+                    ON c.idCon = i.idCon
+                ORDER BY i.idInci DESC';
+
         return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
     }
 
     public function crearIncidencia(array $datos): array
     {
-        $identificadorProtegido = hash('sha256', $datos['documento']);
+        $identificadorProtegido = hash(
+            'sha256',
+            $datos['documento']
+        );
+
         $stmt = $this->conexion->prepare(
             'INSERT INTO incidencia
-             (idCon, tipoInci, descInci, nomReporte, cedHashInci, telReporte, prioridad)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            (idCon, tipoInci, descInci, cedHashInci, prioridad)
+            VALUES (?, ?, ?, ?, ?)'
         );
+
         $stmt->bind_param(
-            'issssss',
+            'issss',
             $datos['idCon'],
             $datos['tipo'],
             $datos['descripcion'],
-            $datos['nombre'],
             $identificadorProtegido,
-            $datos['telefono'],
             $datos['prioridad']
         );
+
         $stmt->execute();
 
         return [
-            'idIncidencia' => $this->conexion->insert_id,
+            'idInci' => (int) $this->conexion->insert_id,
             'idCon' => $datos['idCon'],
             'tipoInci' => $datos['tipo'],
         ];
@@ -195,9 +293,14 @@ class GestionModel
 
     public function eliminarIncidencia(int $id): bool
     {
-        $stmt = $this->conexion->prepare('DELETE FROM incidencia WHERE idIncidencia = ?');
+        $stmt = $this->conexion->prepare(
+            'DELETE FROM incidencia
+             WHERE idInci = ?'
+        );
+
         $stmt->bind_param('i', $id);
         $stmt->execute();
+
         return $stmt->affected_rows > 0;
     }
 }

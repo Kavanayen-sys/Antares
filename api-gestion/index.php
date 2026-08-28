@@ -54,20 +54,20 @@ try {
     }
 
     if ($metodo === 'GET' && $ruta === '/camiones') {
-        responder(['data' => $controlador->listarCamiones()]);
+        responder(['data' => $controlador->listarVehiculos()]);
     }
     if ($metodo === 'POST' && $ruta === '/camiones') {
         verificarCsrf();
-        responder(['data' => $controlador->guardarCamion($datos), 'message' => 'Camión creado.'], 201);
+        responder(['data' => $controlador->guardarVehi($datos), 'message' => 'Vehiculo creado.'], 201);
     }
-    if (preg_match('#^/camiones/(\d+)$#', $ruta, $coincide)) {
+    if (preg_match('#^/vehiculos/(\d+)$#', $ruta, $coincide)) {
         verificarCsrf();
         $id = (int) $coincide[1];
         if ($metodo === 'PUT') {
-            responder(['data' => $controlador->guardarCamion($datos, $id), 'message' => 'Camión actualizado.']);
+            responder(['data' => $controlador->guardarVehi($datos, $id), 'message' => 'Vehiculo actualizado.']);
         }
         if ($metodo === 'DELETE') {
-            responder(['data' => ['eliminado' => $controlador->eliminarCamion($id)], 'message' => 'Camión eliminado.']);
+            responder(['data' => ['eliminado' => $controlador->eliminarVehi($id)], 'message' => 'Vehiculo eliminado.']);
         }
     }
 
