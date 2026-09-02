@@ -1,47 +1,196 @@
 # Primera versión del modelo físico
 
-El modelo se implementa en MariaDB. La aplicación de esta entrega usa las tablas
-`usuario`, `contenedor`, `camion` e `incidencia`; las demás tablas quedan creadas
-para conservar el modelo físico completo aprobado por el equipo.
+El modelo se implementa en MySQL. La aplicación de esta entrega usa todas las tablas finales
 
 ```mermaid
 erDiagram
-    CENTRO ||--o{ MAQUINARIA : usa
-    CENTRO ||--o{ USUARIO : trabaja
-    CENTRO ||--o{ RUTA : recibe
-    CENTRO }o--o{ VERTEDERO : envia
-    USUARIO ||--o| CUADRILLA : chofer
-    USUARIO ||--o| CUADRILLA : peon
-    RUTA }o--o{ CONTENEDOR : compone
-    CAMION }o--o{ CUADRILLA : opera
-    CAMION }o--o{ RUTA : recorre
-    CONTENEDOR ||--o{ INCIDENCIA : presenta
-    INCIDENCIA }o--o{ CAMION : atiende
-    INCIDENCIA ||--o{ RESOLUCION : registra
-    CONTENEDOR ||--o| CONTENEDORDOMICILIARIO : subtipo
-    CONTENEDOR ||--o| CONTENEDORCOMUNITARIO : subtipo
+    centro ||--o{ maquinaria : "tiene"
+    centro ||--o{ usuario : "emplea a"
+    centro ||--o{ ruta : "tiene asignada"
+    centro ||--o{ enviares : "envía residuos a"
+    vertedero ||--o{ enviares : "recibe de"
+    
+    usuario ||--o| cuadrilla : "trabaja como chofer"
+    usuario ||--o| cuadrilla : "trabaja como peón"
+    cuadrilla ||--o{ opera : "realiza"
+    
+    vehiculo ||--o{ opera : "es operado en"
+    vehiculo ||--o{ recorrido : "realiza"
+    vehiculo ||--o{ atiende : "asiste a"
+    vehiculo ||--o{ estaciona : "aparca en"
+    vehiculo ||--o{ repara : "ingresa a"
+    
+    ruta ||--o{ recorrido : "es cubierta por"
+    ruta ||--o{ compone : "está formada por"
+    
+    contenedor ||--o{ compone : "es parte de"
+    contenedor ||--|| contenedordomiciliario : "es un"
+    contenedor ||--|| contenedorcomunitario : "es un"
+    contenedor ||--o{ incidencia : "registra"
+    
+    incidencia ||--o{ resuelve : "es gestionada por"
+    usuario ||--o{ resuelve : "gestiona"
+    incidencia ||--o{ atiende : "es atendida mediante"
+    
+    garaje ||--o{ estaciona : "alberga"
+    mantenimiento ||--o{ repara : "realiza mantenimiento de"
+
+    centro {
+        INT idCentro PK
+        VARCHAR(150) ubiCentro
+        VARCHAR(30) tipoCentro
+        INT capCentro
+    }
+
+    vertedero {
+        INT idVertedero PK
+        VARCHAR(150) ubicacionVertedero
+    }
+
+    maquinaria {
+        INT idMaq PK
+        INT idCentro FK
+        VARCHAR(200) propositoMaq
+        DECIMAL(10_2) capMaq
+        VARCHAR(50) marcaMaq
+        VARCHAR(50) modeloMaq
+        VARCHAR(50) numSerie
+    }
+
+    usuario {
+        INT idUsu PK
+        VARCHAR(50) priNom
+        VARCHAR(20) telUsu
+        DATE fchNac
+        VARCHAR(100) email
+        VARCHAR(255) passwordHash
+        VARCHAR(30) rol
+        VARCHAR(20) estUsu
+        INT idCentro FK
+    }
+
+    cuadrilla {
+        INT idCuadrilla PK
+        INT idChofer FK
+        INT idPeon FK
+    }
+
+    vehiculo {
+        INT idVehi PK
+        VARCHAR(30) tipoVehi
+        VARCHAR(10) matriculaVehi
+        VARCHAR(50) marcaVehi
+        VARCHAR(50) modeloVehi
+        DECIMAL(10_2) capVehi
+        VARCHAR(20) estVehi
+    }
+
+    ruta {
+        INT idRuta PK
+        VARCHAR(30) frecuencia
+        INT idCentro FK
+    }
+
+    recorrido {
+        INT idRecorrido PK
+        INT idVehi FK
+        INT idRuta FK
+        DATE fechaRec
+    }
+
+    contenedor {
+        INT idCon PK
+        DECIMAL(10_2) capacidad
+        VARCHAR(100) calle
+        VARCHAR(100) esquina
+        VARCHAR(30) zona
+        VARCHAR(20) estCon
+        VARCHAR(30) tipoCon
+        BOOLEAN repuesto
+    }
+
+    contenedordomiciliario {
+        INT idCon PK "FK"
+        VARCHAR(30) numPuerta
+    }
+
+    contenedorcomunitario {
+        INT idCon PK "FK"
+        DECIMAL(10_7) latitud
+        DECIMAL(10_7) longitud
+    }
+
+    incidencia {
+        INT idInci PK
+        DATETIME fchaInci
+        INT idCon FK
+        VARCHAR(30) tipoInci
+        VARCHAR(200) descInci
+        CHAR(64) cedHashInci
+        VARCHAR(20) prioridad
+        VARCHAR(20) estado
+    }
+
+    resuelve {
+        INT idResolucion PK
+        INT idInci FK
+        INT idUsu FK
+        DATETIME fchIntento
+        VARCHAR(200) descEstado
+        VARCHAR(20) estIntento
+    }
+
+    atiende {
+        INT idAtencion PK
+        INT idInci FK
+        INT idVehi FK
+        DATETIME fchAtencion
+    }
+
+    compone {
+        INT idComposicion PK
+        INT idRuta FK
+        INT idCon FK
+        INT orden
+    }
+
+    opera {
+        INT idOperacion PK
+        INT idVehi FK
+        INT idCuadrilla FK
+        DATE fchOperacion
+    }
+
+    enviares {
+        INT idEnvio PK
+        INT idCentro FK
+        INT idVertedero FK
+        DATE fchVertido
+    }
+
+    garaje {
+        INT idGaraje PK
+        VARCHAR(150) ubiGaraje
+    }
+
+    mantenimiento {
+        INT idMant PK
+        VARCHAR(150) ubiMant
+    }
+
+    estaciona {
+        INT idEstacion PK
+        INT idGaraje FK
+        INT idVehi FK
+        DATETIME horaEstacionamiento
+    }
+
+    repara {
+        INT idReparacion PK
+        INT idMant FK
+        INT idVehi FK
+        DATETIME horaIngreso
+        DATETIME horaSalida
+        VARCHAR(30) estadoReparacion
+    }
 ```
-
-## Tablas del modelo
-
-1. `centro`: centros de acopio.
-2. `vertedero`: destinos finales de los residuos.
-3. `maquinaria`: maquinaria asignada a un centro.
-4. `usuario`: cuentas, roles y estado de acceso.
-5. `cuadrilla`: chofer, peón y horario de trabajo.
-6. `camion`: flota, capacidad, estado y disponibilidad.
-7. `ruta`: rutas recibidas por cada centro.
-8. `contenedor`: ubicación, capacidad, tipo y estado.
-9. `contenedordomiciliario`: datos propios del subtipo domiciliario.
-10. `contenedorcomunitario`: coordenadas del subtipo comunitario.
-11. `incidencia`: reportes asociados a un contenedor.
-12. `resolucion`: intentos de solución de una incidencia.
-13. `atiende`: camiones que atienden incidencias.
-14. `compone`: orden de los contenedores dentro de una ruta.
-15. `enviares`: residuos enviados desde un centro a un vertedero.
-16. `opera`: operación de un camión por una cuadrilla.
-17. `recorrido`: recorridos realizados y volumen recolectado.
-
-Las claves primarias, claves foráneas, restricciones y tipos exactos están en
-`ddl.sql`. `dump-estructura.sql` contiene la misma estructura sin datos y
-`datos-prueba.sql` carga registros para demostrar la aplicación.
