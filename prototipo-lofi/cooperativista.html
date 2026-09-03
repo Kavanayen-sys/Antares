@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>SiGeRU - Cooperativista</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        .celular {
+            width: 320px;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid black;
+            padding: 15px;
+        }
+        h2, h3, h4 {
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        .bloque {
+            border: 1px solid black;
+            padding: 8px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        select, input {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="celular">
+        <h2>SiGeRU Movil</h2>
+        <p><b>Cuadrilla 1</b></p>
+        <p>Chofer: Carlos Gomez<br>Peon: Lucas Ferreira</p>
+        <p>Camion: STP1234 (12.000 kg)<br>Ruta: Municipio B</p>
+        <hr>
+
+        <h3>Paradas de recoleccion</h3>
+
+        <div class="bloque">
+            <b>1. 18 de Julio y Ejido</b><br>
+            <small>Comun - 1100 L</small><br><br>
+            <button onclick="this.innerText='Vaciado'">Marcar vaciado</button>
+        </div>
+
+        <div class="bloque">
+            <b>2. Colonia y Acevedo</b><br>
+            <small>Comun - 1100 L</small><br><br>
+            <button onclick="this.innerText='Vaciado'">Marcar vaciado</button>
+        </div>
+
+        <div class="bloque">
+            <b>3. Benito Blanco y Pagola</b><br>
+            <small>Vidrio - 240 L</small><br><br>
+            <button onclick="this.innerText='Vaciado'">Marcar vaciado</button>
+        </div>
+
+        <hr>
+        <h4>Reportar problema en contenedor</h4>
+        <label>Contenedor:</label>
+        <select>
+            <option>18 de Julio y Ejido</option>
+            <option>Colonia y Acevedo</option>
+            <option>Benito Blanco y Pagola</option>
+        </select>
+
+        <label>Problema:</label>
+        <select>
+            <option>Desbordado</option>
+            <option>Roto</option>
+            <option>Quemado</option>
+            <option>Basura alrededor</option>
+        </select>
+
+        <label>Comentario:</label>
+        <input type="text" placeholder="Ej: no entra mas basura">
+
+        <button onclick="alert('Alerta enviada a la base')">Enviar reporte</button>
+
+        <p style="margin-top: 20px; font-size: 13px;">
+            <a href="administrativo.html">Ver vista administrativo</a>
+        </p>
+    </div>
+
+</body>
+</html>

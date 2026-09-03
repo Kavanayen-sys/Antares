@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>SiGeRU - Administrativo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eee;
+            margin: 20px;
+        }
+        .contenedor {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 6px;
+            text-align: left;
+            font-size: 14px;
+        }
+        th {
+            background: #ddd;
+        }
+        select, button {
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor">
+        <h2>Panel Administrativo - SiGeRU</h2>
+        <p>Mesa de operaciones y control</p>
+        <hr>
+
+        <h3>Cuadrillas y Camiones</h3>
+        <table>
+            <tr>
+                <th>Cuadrilla</th>
+                <th>Integrantes</th>
+                <th>Camion</th>
+                <th>Ruta</th>
+            </tr>
+            <tr>
+                <td>Cuadrilla 1</td>
+                <td>Carlos Gomez / Lucas Ferreira</td>
+                <td>STP1234</td>
+                <td>Municipio B</td>
+            </tr>
+            <tr>
+                <td>Cuadrilla 2</td>
+                <td>Martin Rossi / Facundo Diaz</td>
+                <td>STP5678</td>
+                <td>Municipio CH</td>
+            </tr>
+        </table>
+
+        <h3>Contenedores en recorrido</h3>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Ubicacion</th>
+                <th>Tipo</th>
+                <th>Capacidad</th>
+                <th>Estado</th>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td>18 de Julio y Ejido</td>
+                <td>Comun</td>
+                <td>1100 L</td>
+                <td>Activo</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>Colonia y Acevedo</td>
+                <td>Comun</td>
+                <td>1100 L</td>
+                <td>Activo</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>Benito Blanco y Pagola</td>
+                <td>Vidrio</td>
+                <td>240 L</td>
+                <td>Activo</td>
+            </tr>
+        </table>
+
+        <h3>Incidencias reportadas</h3>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Contenedor</th>
+                <th>Problema</th>
+                <th>Detalle</th>
+                <th>Accion</th>
+            </tr>
+            <tr>
+                <td>101</td>
+                <td>Contenedor 2 (Colonia)</td>
+                <td>Desbordado</td>
+                <td>Supera la capacidad</td>
+                <td><button onclick="this.innerText='Atendido'">Despachar auxilio</button></td>
+            </tr>
+            <tr>
+                <td>102</td>
+                <td>Contenedor 1 (18 de Julio)</td>
+                <td>Roto</td>
+                <td>Tapa rota</td>
+                <td><button onclick="this.innerText='Atendido'">Despachar auxilio</button></td>
+            </tr>
+        </table>
+
+        <h3>Asignar servicio</h3>
+        <p>
+            Cuadrilla:
+            <select>
+                <option>Cuadrilla 1</option>
+                <option>Cuadrilla 2</option>
+            </select>
+            Camion:
+            <select>
+                <option>STP1234</option>
+                <option>STP5678</option>
+            </select>
+            Ruta:
+            <select>
+                <option>Municipio B</option>
+                <option>Municipio CH</option>
+            </select>
+            <button onclick="alert('Asignacion guardada')">Guardar</button>
+        </p>
+
+        <p style="margin-top: 25px;">
+            <a href="cooperativista.html">Ver vista cooperativista</a>
+        </p>
+    </div>
+
+</body>
+</html>
