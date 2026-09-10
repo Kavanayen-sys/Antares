@@ -30,12 +30,25 @@ try {
         );
     }
 
-    exigirAdministrador();
+    // =========================================================
+    // AUTENTICACIÓN Y ROLES
+    // =========================================================
+
+    $rolesGestion = ['administrador', 'municipal'];
+    $rolesTodosTrabajadores = ['administrador', 'municipal', 'cuadrilla', 'operario'];
+    $rolesOperarios = ['administrador', 'operario', 'municipal'];
+    $rolesCuadrilla = ['administrador', 'municipal', 'cuadrilla'];
+
+    // =========================================================
+    // CONTENEDORES
+    // =========================================================
 
     if ($metodo === 'GET' && $ruta === '/contenedores') {
+        exigirRoles($rolesTodosTrabajadores);
         responder(['data' => $controlador->listarContenedores()]);
     }
     if ($metodo === 'POST' && $ruta === '/contenedores') {
+        exigirRoles($rolesGestion);
         verificarCsrf();
         responder(
             ['data' => $controlador->guardarContenedor($datos), 'message' => 'Contenedor creado.'],
@@ -43,43 +56,207 @@ try {
         );
     }
     if (preg_match('#^/contenedores/(\d+)$#', $ruta, $coincide)) {
-        verificarCsrf();
         $id = (int) $coincide[1];
         if ($metodo === 'PUT') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
             responder(['data' => $controlador->guardarContenedor($datos, $id), 'message' => 'Contenedor actualizado.']);
         }
         if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
             responder(['data' => ['eliminado' => $controlador->eliminarContenedor($id)], 'message' => 'Contenedor eliminado.']);
         }
     }
 
+    // =========================================================
+    // VEHÍCULOS / CAMIONES
+    // =========================================================
+
     if ($metodo === 'GET' && $ruta === '/camiones') {
-        responder(['data' => $controlador->listarCamiones()]);
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarVehiculos()]);
     }
     if ($metodo === 'POST' && $ruta === '/camiones') {
+        exigirRoles($rolesGestion);
         verificarCsrf();
-        responder(['data' => $controlador->guardarCamion($datos), 'message' => 'Camión creado.'], 201);
+        responder(['data' => $controlador->guardarVehiculo($datos), 'message' => 'Vehiculo creado.'], 201);
     }
-    if (preg_match('#^/camiones/(\d+)$#', $ruta, $coincide)) {
-        verificarCsrf();
+    if (preg_match('#^/(?:vehiculos|camiones)/(\d+)$#', $ruta, $coincide)) {
         $id = (int) $coincide[1];
         if ($metodo === 'PUT') {
-            responder(['data' => $controlador->guardarCamion($datos, $id), 'message' => 'Camión actualizado.']);
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarVehiculo($datos, $id), 'message' => 'Vehiculo actualizado.']);
         }
         if ($metodo === 'DELETE') {
-            responder(['data' => ['eliminado' => $controlador->eliminarCamion($id)], 'message' => 'Camión eliminado.']);
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarVehiculo($id)], 'message' => 'Vehiculo eliminado.']);
         }
     }
 
+    // =========================================================
+    // INCIDENCIAS
+    // =========================================================
+
     if ($metodo === 'GET' && $ruta === '/incidencias') {
+        exigirRoles($rolesTodosTrabajadores);
         responder(['data' => $controlador->listarIncidencias()]);
     }
+    if ($metodo === 'PUT' && preg_match('#^/incidencias/(\d+)$#', $ruta, $coincide)) {
+        exigirRoles($rolesTodosTrabajadores);
+        verificarCsrf();
+        responder([
+            'data' => $controlador->actualizarEstadoIncidencia((int) $coincide[1], $datos),
+            'message' => 'Estado de la incidencia actualizado.',
+        ]);
+    }
     if ($metodo === 'DELETE' && preg_match('#^/incidencias/(\d+)$#', $ruta, $coincide)) {
+        exigirRoles($rolesGestion);
         verificarCsrf();
         responder([
             'data' => ['eliminado' => $controlador->eliminarIncidencia((int) $coincide[1])],
             'message' => 'Incidencia eliminada.',
         ]);
+    }
+
+    // =========================================================
+    // RUTAS
+    // =========================================================
+
+    if ($metodo === 'GET' && $ruta === '/rutas') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarRutas()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/rutas') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarRuta($datos), 'message' => 'Ruta creada.'], 201);
+    }
+    if (preg_match('#^/rutas/(\d+)$#', $ruta, $coincide)) {
+        $id = (int) $coincide[1];
+        if ($metodo === 'GET') {
+            exigirRoles($rolesTodosTrabajadores);
+            responder(['data' => $controlador->obtenerRuta($id)]);
+        }
+        if ($metodo === 'PUT') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarRuta($datos, $id), 'message' => 'Ruta actualizada.']);
+        }
+        if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarRuta($id)], 'message' => 'Ruta eliminada.']);
+        }
+    }
+
+    // =========================================================
+    // CUADRILLAS
+    // =========================================================
+
+    if ($metodo === 'GET' && $ruta === '/cuadrillas') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarCuadrillas()]);
+    }
+    if ($metodo === 'GET' && $ruta === '/cuadrilleros') {
+        exigirRoles($rolesGestion);
+        responder(['data' => $controlador->listarUsuariosCuadrilla()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/cuadrillas') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarCuadrilla($datos), 'message' => 'Cuadrilla registrada.'], 201);
+    }
+    if ($metodo === 'DELETE' && preg_match('#^/cuadrillas/(\d+)$#', $ruta, $coincide)) {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => ['eliminado' => $controlador->eliminarCuadrilla((int) $coincide[1])], 'message' => 'Cuadrilla eliminada.']);
+    }
+
+    // =========================================================
+    // ASIGNACIONES
+    // =========================================================
+
+    if ($metodo === 'GET' && $ruta === '/asignaciones') {
+        exigirRoles($rolesCuadrilla);
+        responder(['data' => $controlador->listarAsignaciones()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/asignaciones') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->asignarCuadrilla($datos), 'message' => 'Asignación realizada correctamente.'], 201);
+    }
+
+    // =========================================================
+    // MI RUTA (ROL CUADRILLA)
+    // =========================================================
+
+    if ($metodo === 'GET' && $ruta === '/mi-ruta') {
+        $usuario = exigirRoles($rolesCuadrilla);
+        $idUsuario = (int) ($usuario['idUsu'] ?? 0);
+        responder(['data' => $controlador->obtenerMiRuta($idUsuario)]);
+    }
+
+    // =========================================================
+    // MAQUINARIA, CENTROS Y VERTEDEROS
+    // =========================================================
+
+    if ($metodo === 'GET' && $ruta === '/maquinaria') {
+        exigirRoles($rolesOperarios);
+        responder(['data' => $controlador->listarMaquinaria()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/maquinaria') {
+        exigirRoles($rolesOperarios);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarMaquinaria($datos), 'message' => 'Maquinaria registrada.'], 201);
+    }
+    if (preg_match('#^/maquinaria/(\d+)$#', $ruta, $coincide)) {
+        $id = (int) $coincide[1];
+        if ($metodo === 'PUT') {
+            exigirRoles($rolesOperarios);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarMaquinaria($datos, $id), 'message' => 'Maquinaria actualizada.']);
+        }
+        if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarMaquinaria($id)], 'message' => 'Maquinaria eliminada.']);
+        }
+    }
+
+    if ($metodo === 'GET' && $ruta === '/centros') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarCentros()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/centros') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarCentro($datos), 'message' => 'Centro registrado.'], 201);
+    }
+    if (preg_match('#^/centros/(\d+)$#', $ruta, $coincide)) {
+        $id = (int) $coincide[1];
+        if ($metodo === 'PUT') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarCentro($datos, $id), 'message' => 'Centro actualizado.']);
+        }
+        if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarCentro($id)], 'message' => 'Centro eliminado.']);
+        }
+    }
+
+    if ($metodo === 'GET' && $ruta === '/vertederos') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarVertederos()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/vertederos') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarVertedero($datos), 'message' => 'Vertedero registrado.'], 201);
     }
 
     responder(['error' => 'Ruta no encontrada.'], 404);
@@ -163,14 +340,26 @@ function verificarCsrf(): void
     }
 }
 
-function exigirAdministrador(): void
+function usuarioSesion(): array
 {
     if (empty($_SESSION['usuario'])) {
         responder(['error' => 'Debés iniciar sesión.'], 401);
     }
-    if (($_SESSION['usuario']['rol'] ?? '') !== 'administrador') {
+    return $_SESSION['usuario'];
+}
+
+function exigirRoles(array $roles): array
+{
+    $usuario = usuarioSesion();
+    if (!in_array($usuario['rol'] ?? '', $roles, true)) {
         responder(['error' => 'No tenés permisos para realizar esta acción.'], 403);
     }
+    return $usuario;
+}
+
+function exigirAdministrador(): void
+{
+    exigirRoles(['administrador']);
 }
 
 function responder(array $contenido, int $estado = 200): never

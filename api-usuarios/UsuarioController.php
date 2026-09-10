@@ -41,11 +41,11 @@ class UsuarioController
         $password = (string) ($datos['password'] ?? '');
         $usuario = $this->modelo->obtenerPorEmail($email);
 
-        if (!$usuario || $usuario['estUsu'] !== 'activo' || !password_verify($password, $usuario['hash'])) {
+        if (!$usuario || $usuario['estUsu'] !== 'activo' || !password_verify($password, $usuario['passwordHash'])) {
             throw new RuntimeException('Correo o contraseña incorrectos.');
         }
 
-        unset($usuario['hash']);
+        unset($usuario['passwordHash'], $usuario['hash']);
         return $usuario;
     }
 

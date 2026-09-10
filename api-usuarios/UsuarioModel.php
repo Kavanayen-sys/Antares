@@ -55,12 +55,12 @@ class UsuarioModel
         string $rol,
         string $estado
     ): array {
-        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $this->conexion->prepare(
-            'INSERT INTO usuario (priNom, telUsu, email, hash, rol, estUsu)
+            'INSERT INTO usuario (priNom, telUsu, email, passwordHash, rol, estUsu)
              VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->bind_param('ssssss', $nombre, $telefono, $email, $hash, $rol, $estado);
+        $stmt->bind_param('ssssss', $nombre, $telefono, $email, $passwordHash, $rol, $estado);
         $stmt->execute();
         return $this->obtenerPorId($this->conexion->insert_id);
     }
@@ -75,13 +75,13 @@ class UsuarioModel
         ?string $password
     ): ?array {
         if ($password !== null && $password !== '') {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $this->conexion->prepare(
                 'UPDATE usuario
-                 SET priNom = ?, telUsu = ?, email = ?, rol = ?, estUsu = ?, hash = ?
+                 SET priNom = ?, telUsu = ?, email = ?, rol = ?, estUsu = ?, passwordHash = ?
                  WHERE idUsu = ?'
             );
-            $stmt->bind_param('ssssssi', $nombre, $telefono, $email, $rol, $estado, $hash, $id);
+            $stmt->bind_param('ssssssi', $nombre, $telefono, $email, $rol, $estado, $passwordHash, $id);
         } else {
             $stmt = $this->conexion->prepare(
                 'UPDATE usuario
