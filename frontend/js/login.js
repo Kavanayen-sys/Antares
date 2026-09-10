@@ -18,7 +18,8 @@ formularioLogin.addEventListener("submit", async evento => {
             password: formularioLogin.password.value
         });
         mostrarMensaje(mensajeLogin, resultado.message);
-        window.location.href = resultado.data.rol === "administrador" ? "panel.html" : "index.html";
+        const rolesConPanel = ["administrador", "municipal", "cuadrilla", "operario"];
+        window.location.href = rolesConPanel.includes(resultado.data.rol) ? "panel.html" : "index.html";
     } catch (error) {
         mostrarMensaje(mensajeLogin, error.message, true);
     }

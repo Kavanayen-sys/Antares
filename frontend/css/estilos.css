@@ -496,6 +496,23 @@ td.acciones-tabla {
     color: var(--rojo);
 }
 
+.selector-estado-incidencia {
+    width: auto;
+    margin: 0;
+    padding: 5px 10px;
+    font-size: 0.9rem;
+    color: var(--texto, #333);
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.selector-estado-incidencia:focus {
+    border-color: var(--verde);
+    outline: none;
+}
+
 .editor {
     margin-top: 20px;
     padding: 20px;
@@ -584,4 +601,35 @@ td.acciones-tabla {
     .panel-cabecera span {
         display: none;
     }
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 12px;
+    background: #e2e8f0;
+    color: #475569;
+    text-transform: capitalize;
+}
+
+.badge-administrador {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.badge-municipal {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-cuadrilla {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-operario {
+    background: #dcfce7;
+    color: #166534;
 }

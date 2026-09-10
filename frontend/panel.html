@@ -5,36 +5,383 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel | SiGeRU</title>
     <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="panel">
     <header class="panel-cabecera">
         <b>SiGeRU</b>
-        <span>Administrador SiGeRU</span>
+        <span id="usuario-sesion-info">Cargando sesión...</span>
         <button type="button" id="cerrar-sesion">Salir</button>
     </header>
 
     <aside class="panel-menu">
-        <button class="activo" type="button" data-seccion="resumen">Reportes</button>
-        <button type="button" data-seccion="usuarios">Usuarios</button>
-        <button type="button" data-seccion="contenedores">Contenedores</button>
-        <button type="button" data-seccion="camiones">Camiones</button>
-        <button type="button" data-seccion="incidencias">Incidencias</button>
+        <button class="activo" type="button" data-seccion="resumen" data-roles="administrador,municipal">Resumen</button>
+        <button type="button" data-seccion="mi-ruta" data-roles="cuadrilla,administrador,municipal">Mi Ruta</button>
+        <button type="button" data-seccion="rutas" data-roles="administrador,municipal,cuadrilla">Rutas</button>
+        <button type="button" data-seccion="cuadrillas" data-roles="administrador,municipal">Cuadrillas</button>
+        <button type="button" data-seccion="asignaciones" data-roles="administrador,municipal,cuadrilla">Asignaciones</button>
+        <button type="button" data-seccion="contenedores" data-roles="administrador,municipal">Contenedores</button>
+        <button type="button" data-seccion="camiones" data-roles="administrador,municipal">Vehículos</button>
+        <button type="button" data-seccion="incidencias" data-roles="administrador,municipal,cuadrilla">Incidencias</button>
+        <button type="button" data-seccion="maquinaria" data-roles="administrador,operario,municipal">Maquinaria</button>
+        <button type="button" data-seccion="centros" data-roles="administrador,operario,municipal">Centros y Vertederos</button>
+        <button type="button" data-seccion="usuarios" data-roles="administrador">Usuarios</button>
     </aside>
 
     <main class="panel-contenido">
         <p class="mensaje panel-mensaje" id="mensaje-panel" aria-live="polite"></p>
 
+        <!-- SECCION: RESUMEN -->
         <section class="seccion-panel activa" id="seccion-resumen">
-            <h1>Reportes básicos</h1>
+            <h1>Panel de Control SiGeRU</h1>
             <div class="indicadores">
                 <article><span>Usuarios</span><b id="cantidad-usuarios">0</b></article>
                 <article><span>Contenedores</span><b id="cantidad-contenedores">0</b></article>
-                <article><span>Camiones</span><b id="cantidad-camiones">0</b></article>
+                <article><span>Vehículos</span><b id="cantidad-camiones">0</b></article>
                 <article><span>Incidencias</span><b id="cantidad-incidencias">0</b></article>
+                <article><span>Rutas</span><b id="cantidad-rutas">0</b></article>
+                <article><span>Cuadrillas</span><b id="cantidad-cuadrillas">0</b></article>
+                <article><span>Maquinaria</span><b id="cantidad-maquinaria">0</b></article>
+                <article><span>Centros</span><b id="cantidad-centros">0</b></article>
             </div>
-            <p>Los datos mostrados se consultan desde MySQL mediante las APIs.</p>
+            <p style="margin-top: 20px; color: var(--gris);">Bienvenido al sistema de gestión. Seleccioná una sección del menú lateral según tu rol.</p>
         </section>
 
+        <!-- SECCION: MI RUTA (ROL CUADRILLA) -->
+        <section class="seccion-panel" id="seccion-mi-ruta">
+            <div class="titulo-seccion">
+                <div><h1>Mi Ruta de Trabajo</h1><p>Vehículo, recorrido asignado e incidencias de tu ruta actual.</p></div>
+                <button class="boton secundario" type="button" id="btn-recargar-mi-ruta">Actualizar datos</button>
+            </div>
+
+            <div id="mi-ruta-tarjetas" class="indicadores" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 24px;">
+                <!-- Rellenado dinámicamente con vehículo, chofer/peon, ruta -->
+            </div>
+
+            <h2>Paradas y Contenedores en el Recorrido</h2>
+            <div class="tabla-contenedor" style="margin-bottom: 28px;">
+                <table>
+                    <thead><tr><th>Orden</th><th>ID Contenedor</th><th>Ubicación</th><th>Zona</th><th>Tipo</th><th>Capacidad</th><th>Estado</th></tr></thead>
+                    <tbody id="tabla-mi-ruta-contenedores"></tbody>
+                </table>
+            </div>
+
+            <h2>Incidencias en los Contenedores de tu Ruta</h2>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Parada #</th><th>Fecha</th><th>Contenedor</th><th>Problema</th><th>Prioridad</th><th>Estado (Acción)</th></tr></thead>
+                    <tbody id="tabla-mi-ruta-incidencias"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECCION: RUTAS -->
+        <section class="seccion-panel" id="seccion-rutas">
+            <div class="titulo-seccion">
+                <div><h1>Rutas de Recolección</h1><p>Configuración de rutas y secuencia de contenedores.</p></div>
+                <button class="boton" type="button" data-nuevo="ruta" data-roles="administrador,municipal">Nueva ruta</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Frecuencia</th><th>Centro Destino</th><th>Contenedores</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-rutas"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-ruta" hidden>
+                <h2 id="titulo-form-ruta">Nueva ruta</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Frecuencia / Nombre<input name="frecuencia" maxlength="30" placeholder="Ej: Diaria - Municipio B" required></label>
+                    <label>Centro de Descarga / Acopio
+                        <select name="idCentro" id="select-ruta-centro" required></select>
+                    </label>
+                </div>
+                <div style="margin-top: 14px;">
+                    <label><b>Seleccionar Contenedores que componen la ruta (en orden):</b></label>
+                    <div id="lista-seleccion-contenedores" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--borde); padding: 10px; border-radius: 6px; margin-top: 6px; background: #fafafa;">
+                        <!-- Checkboxes de contenedores -->
+                    </div>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar Ruta</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: CUADRILLAS -->
+        <section class="seccion-panel" id="seccion-cuadrillas">
+            <div class="titulo-seccion">
+                <div><h1>Cuadrillas</h1><p>Equipos de trabajo formados por chofer y peón.</p></div>
+                <button class="boton" type="button" data-nuevo="cuadrilla">Nueva cuadrilla</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Chofer</th><th>Tel. Chofer</th><th>Peón</th><th>Tel. Peón</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-cuadrillas"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-cuadrilla" hidden>
+                <h2 id="titulo-form-cuadrilla">Nueva cuadrilla</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Chofer (Rol Cuadrilla)
+                        <select name="idChofer" id="select-cuadrilla-chofer" required></select>
+                    </label>
+                    <label>Peón (Rol Cuadrilla)
+                        <select name="idPeon" id="select-cuadrilla-peon" required></select>
+                    </label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Registrar Cuadrilla</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: ASIGNACIONES (MUNICIPAL / ADMIN) -->
+        <section class="seccion-panel" id="seccion-asignaciones">
+            <div class="titulo-seccion">
+                <div><h1>Asignación de Servicios</h1><p>Asignar una cuadrilla a un vehículo y a una ruta de recolección.</p></div>
+                <button class="boton" type="button" data-nuevo="asignacion" data-roles="administrador,municipal">Nueva asignación</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID Op.</th><th>Fecha</th><th>Cuadrilla</th><th>Vehículo</th><th>Ruta Asignada</th></tr></thead>
+                    <tbody id="tabla-asignaciones"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-asignacion" hidden>
+                <h2 id="titulo-form-asignacion">Asignar Cuadrilla a Vehículo y Ruta</h2>
+                <div class="grilla-formulario">
+                    <label>Cuadrilla
+                        <select name="idCuadrilla" id="select-asig-cuadrilla" required></select>
+                    </label>
+                    <label>Vehículo
+                        <select name="idVehi" id="select-asig-vehiculo" required></select>
+                    </label>
+                    <label>Ruta de Recorrido
+                        <select name="idRuta" id="select-asig-ruta">
+                            <option value="">(Opcional / Sin ruta fija)</option>
+                        </select>
+                    </label>
+                    <label>Fecha de Operación
+                        <input name="fecha" type="date" required id="input-asig-fecha">
+                    </label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar Asignación</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: CONTENEDORES -->
+        <section class="seccion-panel" id="seccion-contenedores">
+            <div class="titulo-seccion">
+                <div><h1>Contenedores</h1><p>Alta, modificación y baja de contenedores.</p></div>
+                <button class="boton" type="button" data-nuevo="contenedor">Nuevo contenedor</button>
+            </div>
+            <div id="mapa-general-contenedores" style="height: 320px; width: 100%; border-radius: 8px; border: 1px solid var(--borde); margin-bottom: 18px; z-index: 1;"></div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Ubicación</th><th>Zona</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-contenedores"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-contenedor" hidden>
+                <h2 id="titulo-form-contenedor">Nuevo contenedor</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Capacidad (litros)<input name="capacidad" type="number" min="1" required></label>
+                    <label>Calle<input name="calle" maxlength="100" required></label>
+                    <label>Esquina<input name="esquina" maxlength="100" required></label>
+                    <label>Zona
+                        <select name="zona" required>
+                            <option>Municipio A</option><option>Municipio B</option>
+                            <option>Municipio C</option><option>Municipio CH</option>
+                            <option>Municipio D</option><option>Municipio E</option>
+                            <option>Municipio F</option><option>Municipio G</option>
+                        </select>
+                    </label>
+                    <label>Tipo
+                        <select name="tipo" required>
+                            <option value="comun">Común</option><option value="aceite">Aceite</option>
+                            <option value="electronicos">Electrónicos</option><option value="reciclables">Reciclables</option>
+                        </select>
+                    </label>
+                    <label>Estado
+                        <select name="estado" required>
+                            <option value="activo">Activo</option><option value="inactivo">Inactivo</option>
+                        </select>
+                    </label>
+                    <label class="casilla"><input name="repuesto" type="checkbox"> Es de repuesto</label>
+                </div>
+                <label style="margin-top: 10px;">Ubicación en el mapa (hacé clic para fijar coordenadas):</label>
+                <div id="mapa-form-contenedor" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid var(--borde); margin-bottom: 12px; z-index: 1;"></div>
+                <div class="grilla-formulario" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
+                    <label>Latitud<input name="latitud" id="input-con-lat" type="number" step="0.0000001" readonly></label>
+                    <label>Longitud<input name="longitud" id="input-con-lng" type="number" step="0.0000001" readonly></label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: VEHÍCULOS / CAMIONES -->
+        <section class="seccion-panel" id="seccion-camiones">
+            <div class="titulo-seccion">
+                <div><h1>Vehículos y Camiones</h1><p>Gestión del parque móvil de recolección y limpieza.</p></div>
+                <button class="boton" type="button" data-nuevo="camion">Nuevo vehículo</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Matrícula</th><th>Marca y modelo</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-camiones"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-camion" hidden>
+                <h2 id="titulo-form-camion">Nuevo vehículo</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Matrícula<input name="matricula" maxlength="10" required></label>
+                    <label>Marca<input name="marca" maxlength="50" required></label>
+                    <label>Modelo<input name="modelo" maxlength="50" required></label>
+                    <label>Capacidad (kg)<input name="capacidad" type="number" min="1" required></label>
+                    <label>Tipo
+                        <select name="tipo" required>
+                            <option value="comunitario">Comunitario</option>
+                            <option value="intradomiciliario">Intradomiciliario</option>
+                            <option value="limpieza">Limpieza</option>
+                            <option value="centroAcopio">Centro de acopio</option>
+                        </select>
+                    </label>
+                    <label>Estado
+                        <select name="estado" required>
+                            <option value="disponible">Disponible</option>
+                            <option value="en uso">En uso</option>
+                            <option value="roto">Roto</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: INCIDENCIAS -->
+        <section class="seccion-panel" id="seccion-incidencias">
+            <div class="titulo-seccion">
+                <div><h1>Incidencias Generales</h1><p>Reportes recibidos y estado de atención.</p></div>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Fecha</th><th>Contenedor</th><th>Problema</th><th>Prioridad</th><th>Acciones (Estado)</th></tr></thead>
+                    <tbody id="tabla-incidencias"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECCION: MAQUINARIA (ROL OPERARIO / ADMIN) -->
+        <section class="seccion-panel" id="seccion-maquinaria">
+            <div class="titulo-seccion">
+                <div><h1>Maquinaria</h1><p>Prensas, compactadoras y maquinaria en centros de tratamiento.</p></div>
+                <button class="boton" type="button" data-nuevo="maquinaria" data-roles="administrador,operario,municipal">Nueva maquinaria</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>ID</th><th>Marca y Modelo</th><th>Nº Serie</th><th>Propósito / Uso</th><th>Capacidad</th><th>Centro</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-maquinaria"></tbody>
+                </table>
+            </div>
+            <form class="editor" id="form-maquinaria" hidden>
+                <h2 id="titulo-form-maquinaria">Nueva maquinaria</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Centro de Acopio Asociado
+                        <select name="idCentro" id="select-maq-centro" required></select>
+                    </label>
+                    <label>Propósito<input name="proposito" maxlength="200" placeholder="Ej: Prensa compactadora" required></label>
+                    <label>Capacidad (kg / h)<input name="capacidad" type="number" step="0.01" min="0" required></label>
+                    <label>Marca<input name="marca" maxlength="50" required></label>
+                    <label>Modelo<input name="modelo" maxlength="50" required></label>
+                    <label>Número de Serie<input name="numSerie" maxlength="50" required></label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar Maquinaria</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: CENTROS Y VERTEDEROS (ROL OPERARIO / ADMIN) -->
+        <section class="seccion-panel" id="seccion-centros">
+            <div class="titulo-seccion">
+                <div><h1>Centros de Acopio y Vertederos</h1><p>Puntos de recepción, clasificación y disposición final de residuos.</p></div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2>Centros de Acopio</h2>
+                        <button class="boton" type="button" data-nuevo="centro" data-roles="administrador,municipal">Nuevo centro</button>
+                    </div>
+                    <div class="tabla-contenedor">
+                        <table>
+                            <thead><tr><th>ID</th><th>Ubicación</th><th>Tipo Residuo</th><th>Capacidad (kg)</th><th>Acciones</th></tr></thead>
+                            <tbody id="tabla-centros"></tbody>
+                        </table>
+                    </div>
+                    <form class="editor" id="form-centro" hidden style="margin-top: 14px;">
+                        <h3 id="titulo-form-centro">Nuevo Centro de Acopio</h3>
+                        <input name="id" type="hidden">
+                        <div class="grilla-formulario">
+                            <label>Ubicación<input name="ubiCentro" type="text" maxlength="150" placeholder="Ej: Av. 8 de Octubre 3400" required></label>
+                            <label>Tipo
+                                <select name="tipoCentro" required>
+                                    <option value="comun">Común</option>
+                                    <option value="reciclables">Reciclables</option>
+                                    <option value="electronicos">Electrónicos</option>
+                                    <option value="aceite">Aceite</option>
+                                </select>
+                            </label>
+                            <label>Capacidad (kg)<input name="capCentro" type="number" min="1" required></label>
+                        </div>
+                        <div class="acciones-editor">
+                            <button class="boton" type="submit">Guardar Centro</button>
+                            <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2>Vertederos</h2>
+                        <button class="boton" type="button" data-nuevo="vertedero" data-roles="administrador,municipal">Nuevo vertedero</button>
+                    </div>
+                    <div class="tabla-contenedor">
+                        <table>
+                            <thead><tr><th>ID</th><th>Ubicación</th></tr></thead>
+                            <tbody id="tabla-vertederos"></tbody>
+                        </table>
+                    </div>
+                    <form class="editor" id="form-vertedero" hidden style="margin-top: 14px;">
+                        <h3>Nuevo Vertedero</h3>
+                        <label>Ubicación<input name="ubicacion" maxlength="150" placeholder="Ej: Camino Felipe Cardoso km 4.5" required></label>
+                        <div class="acciones-editor">
+                            <button class="boton" type="submit">Guardar Vertedero</button>
+                            <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCION: USUARIOS (SOLO ADMINISTRADOR) -->
         <section class="seccion-panel" id="seccion-usuarios">
             <div class="titulo-seccion">
                 <div><h1>Usuarios</h1><p>Alta, modificación y baja de usuarios.</p></div>
@@ -78,110 +425,9 @@
                 </div>
             </form>
         </section>
-
-        <section class="seccion-panel" id="seccion-contenedores">
-            <div class="titulo-seccion">
-                <div><h1>Contenedores</h1><p>Alta, modificación y baja de contenedores.</p></div>
-                <button class="boton" type="button" data-nuevo="contenedor">Nuevo contenedor</button>
-            </div>
-            <div class="tabla-contenedor">
-                <table>
-                    <thead><tr><th>ID</th><th>Ubicación</th><th>Zona</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
-                    <tbody id="tabla-contenedores"></tbody>
-                </table>
-            </div>
-            <form class="editor" id="form-contenedor" hidden>
-                <h2 id="titulo-form-contenedor">Nuevo contenedor</h2>
-                <input name="id" type="hidden">
-                <div class="grilla-formulario">
-                    <label>Capacidad (litros)<input name="capacidad" type="number" min="1" required></label>
-                    <label>Calle<input name="calle" maxlength="100" required></label>
-                    <label>Esquina<input name="esquina" maxlength="100" required></label>
-                    <label>Zona
-                        <select name="zona" required>
-                            <option>Municipio A</option><option>Municipio B</option>
-                            <option>Municipio C</option><option>Municipio CH</option>
-                            <option>Municipio D</option><option>Municipio E</option>
-                            <option>Municipio F</option><option>Municipio G</option>
-                        </select>
-                    </label>
-                    <label>Tipo
-                        <select name="tipo" required>
-                            <option value="comun">Común</option><option value="aceite">Aceite</option>
-                            <option value="electronicos">Electrónicos</option><option value="vidrio">Reciclables</option>
-                        </select>
-                    </label>
-                    <label>Estado
-                        <select name="estado" required>
-                            <option value="activo">Activo</option><option value="inactivo">Inactivo</option>
-                        </select>
-                    </label>
-                    <label class="casilla"><input name="repuesto" type="checkbox"> Es de repuesto</label>
-                </div>
-                <div class="acciones-editor">
-                    <button class="boton" type="submit">Guardar</button>
-                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
-                </div>
-            </form>
-        </section>
-
-        <section class="seccion-panel" id="seccion-camiones">
-            <div class="titulo-seccion">
-                <div><h1>Camiones</h1><p>Alta, modificación y baja de camiones.</p></div>
-                <button class="boton" type="button" data-nuevo="camion">Nuevo camión</button>
-            </div>
-            <div class="tabla-contenedor">
-                <table>
-                    <thead><tr><th>ID</th><th>Matrícula</th><th>Marca y modelo</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
-                    <tbody id="tabla-camiones"></tbody>
-                </table>
-            </div>
-            <form class="editor" id="form-camion" hidden>
-                <h2 id="titulo-form-camion">Nuevo camión</h2>
-                <input name="id" type="hidden">
-                <div class="grilla-formulario">
-                    <label>Matrícula<input name="matricula" maxlength="10" required></label>
-                    <label>Marca<input name="marca" maxlength="50" required></label>
-                    <label>Modelo<input name="modelo" maxlength="50" required></label>
-                    <label>Capacidad (kg)<input name="capacidad" type="number" min="1" required></label>
-                    <label>Tipo
-                        <select name="tipo" required>
-                            <option value="comunitario">Comunitario</option>
-                            <option value="intradomiciliario">Intradomiciliario</option>
-                            <option value="limpieza">Limpieza</option>
-                            <option value="centroAcopio">Centro de acopio</option>
-                        </select>
-                    </label>
-                    <label>Estado
-                        <select name="estado" required>
-                            <option value="disponible">Disponible</option>
-                            <option value="en uso">En uso</option>
-                            <option value="roto">Roto</option>
-                        </select>
-                    </label>
-                    <label class="casilla"><input name="repuesto" type="checkbox"> Es de repuesto</label>
-                </div>
-                <div class="acciones-editor">
-                    <button class="boton" type="submit">Guardar</button>
-                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
-                </div>
-            </form>
-        </section>
-
-        <section class="seccion-panel" id="seccion-incidencias">
-            <div class="titulo-seccion">
-                <div><h1>Incidencias</h1><p>Reportes recibidos desde el formulario público.</p></div>
-                <a class="boton" href="incidencia.html">Nueva incidencia</a>
-            </div>
-            <div class="tabla-contenedor">
-                <table>
-                    <thead><tr><th>ID</th><th>Contenedor</th><th>Problema</th><th>Reportante</th><th>Teléfono</th><th>Prioridad</th><th>Acciones</th></tr></thead>
-                    <tbody id="tabla-incidencias"></tbody>
-                </table>
-            </div>
-        </section>
     </main>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/api.js"></script>
     <script src="js/panel.js"></script>
 </body>

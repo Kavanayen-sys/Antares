@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reportar incidencia | SiGeRU</title>
     <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="fondo-formulario">
     <main class="tarjeta-formulario tarjeta-ancha">
@@ -13,15 +14,16 @@
 
         <h1>Reportar incidencia</h1>
         <form id="form-incidencia">
-            <label for="id-contenedor">ID del contenedor</label>
+            <label>Ubicación del contenedor (seleccioná en el mapa o en la lista):</label>
+            <div id="mapa-incidencia" style="height: 280px; width: 100%; border-radius: 8px; border: 1px solid var(--borde); margin-bottom: 14px; z-index: 1;"></div>
+
+            <label for="id-contenedor">Contenedor seleccionado</label>
             <select id="id-contenedor" name="idCon" required>
-                <option value="">Cargando contenedores...</option>
+                <option value="">Cargando contenedores en el mapa...</option>
             </select>
-            <small>La lista se obtiene directamente de la base de datos.</small>
 
             <label for="documento">Cédula</label>
-<input id="documento" name="documento" maxlength="12" inputmode="numeric" required>
-<small>Se guarda como un hash, no como texto legible.</small>
+            <input id="documento" name="documento" maxlength="12" inputmode="numeric" required>
 
 <div class="dos-columnas">
 
@@ -55,6 +57,7 @@
 <p class="mensaje" id="mensaje-incidencia" aria-live="polite"></p>
         <p class="enlace-formulario"><a href="index.html">Volver al inicio</a></p>
     </main>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/api.js"></script>
     <script src="js/incidencia.js"></script>
 </body>
