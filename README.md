@@ -1,4 +1,4 @@
-# SiGeRU - Segunda Entrega Full Stack
+# SiGeRU - Tercer Entrega Full Stack
 
 Versión simple realizada con HTML, CSS, JavaScript, PHP 8 y MySQL 8.
 
