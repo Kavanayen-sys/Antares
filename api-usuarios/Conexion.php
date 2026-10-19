@@ -7,7 +7,7 @@ if (!function_exists('conectarBase')) {
     {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-        $host = getenv('SIGERU_DB_HOST') ?: 'localhost';
+        $host = getenv('SIGERU_DB_HOST') ?: '127.0.0.1';
         $puerto = (int) (getenv('SIGERU_DB_PORT') ?: 3306);
         $usuario = getenv('SIGERU_DB_USER') ?: 'root';
         $password = getenv('SIGERU_DB_PASSWORD') ?: '';

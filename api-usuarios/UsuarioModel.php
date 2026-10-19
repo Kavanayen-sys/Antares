@@ -96,6 +96,42 @@ class UsuarioModel
 
     public function eliminar(int $id): bool
     {
+        $stmtCuad = $this->conexion->prepare('SELECT idCuadrilla FROM cuadrilla WHERE idChofer = ? OR idPeon = ?');
+        $stmtCuad->bind_param('ii', $id, $id);
+        $stmtCuad->execute();
+        $cuadrillas = $stmtCuad->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        foreach ($cuadrillas as $c) {
+            $idC = (int) $c['idCuadrilla'];
+
+            $stmtOps = $this->conexion->prepare('SELECT idVehi, fchOperacion FROM opera WHERE idCuadrilla = ?');
+            $stmtOps->bind_param('i', $idC);
+            $stmtOps->execute();
+            $ops = $stmtOps->get_result()->fetch_all(MYSQLI_ASSOC);
+
+            foreach ($ops as $op) {
+                $idV = (int) $op['idVehi'];
+                $f = $op['fchOperacion'];
+                $delR = $this->conexion->prepare('DELETE FROM recorrido WHERE idVehi = ? AND fechaRec = ?');
+                $delR->bind_param('is', $idV, $f);
+                $delR->execute();
+
+                $this->conexion->query("UPDATE vehiculo SET estVehi = 'disponible' WHERE idVehi = {$idV} AND estVehi = 'en uso'");
+            }
+
+            $delO = $this->conexion->prepare('DELETE FROM opera WHERE idCuadrilla = ?');
+            $delO->bind_param('i', $idC);
+            $delO->execute();
+
+            $delC = $this->conexion->prepare('DELETE FROM cuadrilla WHERE idCuadrilla = ?');
+            $delC->bind_param('i', $idC);
+            $delC->execute();
+        }
+
+        $delRes = $this->conexion->prepare('DELETE FROM resuelve WHERE idUsu = ?');
+        $delRes->bind_param('i', $id);
+        $delRes->execute();
+
         $stmt = $this->conexion->prepare('DELETE FROM usuario WHERE idUsu = ?');
         $stmt->bind_param('i', $id);
         $stmt->execute();

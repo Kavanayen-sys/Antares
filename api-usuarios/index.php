@@ -102,7 +102,7 @@ function iniciarSesionSegura(): void
 function configurarAcceso(): void
 {
     $origen = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $permitidos = ['http://localhost:8090', 'http://127.0.0.1:8090'];
+    $permitidos = ['http://localhost:8090', 'http://127.0.0.1:8090', 'http://192.168.1.10:8090'];
 
     if ($origen !== '' && !in_array($origen, $permitidos, true)) {
         responder(['error' => 'Origen no autorizado.'], 403);
