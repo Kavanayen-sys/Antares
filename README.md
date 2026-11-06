@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # SiGeRU - Segunda Entrega Full Stack
+=======
+# SiGeRU - Tercer Entrega Full Stack
+>>>>>>> origin/Facundo
 
 Versión simple realizada con HTML, CSS, JavaScript, PHP 8 y MySQL 8.
 
@@ -18,9 +22,16 @@ Versión simple realizada con HTML, CSS, JavaScript, PHP 8 y MySQL 8.
 - control de maquinaria y centros de acopio con CRUD completo (alta, baja, modificación y listado);
 - listado, cambio de estado y baja de incidencias;
 - vistas y permisos del panel adaptados según el rol (administrador, municipal, cuadrilla, operario);
+<<<<<<< HEAD
 - sección Mi Ruta para la cuadrilla con hoja de paradas e incidencias de la ruta;
+=======
+- sección Mi Ruta para la cuadrilla con hoja de paradas, mapa interactivo del recorrido e incidencias asignadas;
+- mapa interactivo general de incidencias en la ciudad con colores por nivel de prioridad y actualización rápida de estado;
+- sistema de alertas y notificaciones para trabajadores (campana con contador en cabecera, lista desplegable de avisos críticos y banner destacado para cuadrillas);
+- estadísticas y gráficos interactivos con Chart.js en el resumen del panel (estado de incidencias, top 5 de contenedores con desbordes o fallas, distribución por tipo de problema y disponibilidad de la flota de vehículos);
+>>>>>>> origin/Facundo
 - intercambio de datos en JSON;
-- API REST de usuarios y API REST de gestión;
+- arquitectura de microservicios con 4 APIs REST independientes (usuarios, logística, contenedores y centros/vertederos);
 - modelo físico, DDL, dump y datos de prueba.
 
 ## Seguridad incluida
@@ -63,12 +74,32 @@ Se pueden cambiar con las variables `SIGERU_DB_HOST`, `SIGERU_DB_PORT`,
 
 ## 2. Iniciar la aplicación
 
+<<<<<<< HEAD
 Se necesita PHP 8 con la extensión `mysqli`. Abrir tres terminales dentro de
 la carpeta del proyecto:
+=======
+Se necesita PHP 8 con la extensión `mysqli`.
+
+### Inicio automático
+
+- **En Windows:** Hacer doble clic en `iniciar-windows.bat` (o ejecutarlo desde CMD/PowerShell). Abrirá automáticamente 5 terminales con cada API y el frontend, y abrirá el navegador en `http://localhost:8090`. Para detener todo podés usar `detener-windows.bat`.
+- **En Linux:** Dar permisos y ejecutar `iniciar-linux.sh`:
+  ```bash
+  chmod +x iniciar-linux.sh
+  ./iniciar-linux.sh
+  ```
+  Abrirá las terminales según el entorno gráfico disponible (GNOME, XFCE, KDE, etc.) o en segundo plano si estás en una sesión de servidor/SSH. Para detener todo podés usar `./detener-linux.sh`.
+
+### Inicio manual
+
+Abrir terminales dentro de la carpeta del proyecto:
+>>>>>>> origin/Facundo
 
 ```powershell
 C:\xampp\php\php.exe -S localhost:8091 api-usuarios/index.php
-C:\xampp\php\php.exe -S localhost:8092 api-gestion/index.php
+C:\xampp\php\php.exe -S localhost:8092 api-logistica/index.php
+C:\xampp\php\php.exe -S localhost:8093 api-contenedores/index.php
+C:\xampp\php\php.exe -S localhost:8094 api-centros/index.php
 C:\xampp\php\php.exe -S localhost:8090 -t frontend
 ```
 
@@ -90,21 +121,37 @@ Cuenta de demostración:
 - `GET|POST /usuarios`
 - `PUT|DELETE /usuarios/{id}`
 
-### API de gestión - puerto 8092
+### API de logística - puerto 8092
+
+- `GET|POST /camiones`
+- `PUT|DELETE /camiones/{id}`
+- `GET|POST /rutas`
+- `GET|PUT|DELETE /rutas/{id}`
+- `GET|POST /cuadrillas`
+- `DELETE /cuadrillas/{id}`
+- `GET /cuadrilleros`
+- `GET|POST /asignaciones`
+- `GET /mi-ruta`
+
+### API de contenedores - puerto 8093
 
 - `GET /contenedores-publicos`
 - `GET|POST /contenedores`
 - `PUT|DELETE /contenedores/{id}`
-- `GET|POST /camiones`
-- `PUT|DELETE /camiones/{id}`
 - `GET|POST /incidencias`
 - `PUT|DELETE /incidencias/{id}`
+<<<<<<< HEAD
 - `GET|POST /rutas`
 - `GET|PUT|DELETE /rutas/{id}`
 - `GET|POST /cuadrillas`
 - `DELETE /cuadrillas/{id}`
 - `GET|POST /asignaciones`
 - `GET /mi-ruta`
+=======
+
+### API de centros - puerto 8094
+
+>>>>>>> origin/Facundo
 - `GET|POST /maquinaria`
 - `PUT|DELETE /maquinaria/{id}`
 - `GET|POST /centros`
