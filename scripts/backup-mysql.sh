@@ -1,31 +1,28 @@
 #!/bin/bash
 
 # ==============================================================================
-# SiGeRU - Gestión de respaldos
-# Servidor de Base de Datos (192.168.1.11)
+# SiGeRU - Gestión de respaldos de Base de Datos
+# Contenedor: sigeru_db (MySQL 8)
 # Esquema: Completo (Mensual) + Diferencial (Semanal) + Incremental (Diario)
+# Los respaldos se guardan en el volumen Docker: sigeru_backups -> /backups
 # ==============================================================================
 
 set -o pipefail
 
-# Configuración del servidor de backup
-SERVIDOR_BACKUP="192.168.1.12"
-USUARIO_BACKUP="respaldo"
-PUERTO_SSH="2026"
-
+# Configuración del contenedor
+CONTENEDOR_DB="sigeru_db"
 NOMBRE_BD="sigeru"
-DIR_MYSQL="/var/lib/mysql"
-BINLOG_INDEX="$DIR_MYSQL/binlog.index"
+DB_USER="sigeru_user"
+DB_PASS="sigeru_pass"
 
-# Rutas temporales y de control
-RUTA_TEMP="/var/backups/sigeru-mysql"
+# Rutas de control en el HOST (para los marcadores de binlog)
 DIR_CONTROL="/var/lib/sigeru-backup"
 MARKER_BASE="$DIR_CONTROL/mysql_base_coords.txt"
 MARKER_LAST="$DIR_CONTROL/mysql_last_coords.txt"
 ARCHIVO_LOG="/var/log/sigeru-backup-mysql.log"
 
-# Opciones SSH seguras para ejecución desatendida
-SSH_OPTS="-p $PUERTO_SSH -o BatchMode=yes -o ConnectTimeout=15"
+# Directorio temporal en el host para armar el tar
+RUTA_TEMP="/tmp/sigeru-backup-mysql"
 FECHA=$(date +"%Y-%m-%d_%H-%M-%S")
 
 
@@ -49,41 +46,51 @@ PrepararDirectorios() {
 }
 
 
+VerificarContenedor() {
+    if ! docker inspect --format '{{.State.Running}}' "$CONTENEDOR_DB" 2>/dev/null | grep -q "true"; then
+        RegistrarLog "ERROR: El contenedor '$CONTENEDOR_DB' no está corriendo. Abortando."
+        exit 1
+    fi
+}
+
+
+# Ejecutar mysqladmin o mysql dentro del contenedor
+EjecutarMySQL() {
+    docker exec "$CONTENEDOR_DB" bash -c "$1"
+}
+
+
 ObtenerCoordenadasBinlog() {
     local status
-    status=$(mysql -N -e "SHOW BINARY LOG STATUS;" 2>/dev/null || mysql -N -e "SHOW MASTER STATUS;" 2>/dev/null)
-    local arch=$(echo "$status" | awk '{print $1}')
-    local pos=$(echo "$status" | awk '{print $2}')
+    status=$(EjecutarMySQL "mysql -u$DB_USER -p$DB_PASS -N -e 'SHOW BINARY LOG STATUS;' 2>/dev/null \
+             || mysql -u$DB_USER -p$DB_PASS -N -e 'SHOW MASTER STATUS;' 2>/dev/null")
+    local arch pos
+    arch=$(echo "$status" | awk '{print $1}')
+    pos=$(echo "$status"  | awk '{print $2}')
     echo "$arch $pos"
 }
 
 
-EnviarBackup() {
-    local archivo="$1"
+GuardarEnVolumen() {
+    local archivo_host="$1"
     local tipo="$2"
+    local nombre_archivo
+    nombre_archivo=$(basename "$archivo_host")
 
-    if [ ! -f "$archivo" ]; then
-        RegistrarLog "ERROR: El archivo $archivo no existe para transferir."
-        return 1
-    fi
+    RegistrarLog "Copiando respaldo al volumen Docker (sigeru_backups/$tipo/)..."
 
-    local tamano
-    tamano=$(du -h "$archivo" | cut -f1)
-    RegistrarLog "Enviando respaldo ($tamano) al servidor $SERVIDOR_BACKUP en '$tipo'..."
-
-    # Transferencia con creación automática del directorio remoto si no existe
-    rsync -avz \
-        --rsync-path="mkdir -p /backups/mysql/$tipo && rsync" \
-        -e "ssh $SSH_OPTS" \
-        "$archivo" \
-        "$USUARIO_BACKUP@$SERVIDOR_BACKUP:/backups/mysql/$tipo/"
+    # Copiar el archivo dentro del volumen a través del contenedor backup
+    docker run --rm \
+        -v sigeru_backups:/backups \
+        -v "$archivo_host":/tmp/entrada/"$nombre_archivo":ro \
+        alpine sh -c "mkdir -p /backups/mysql/$tipo && cp /tmp/entrada/$nombre_archivo /backups/mysql/$tipo/"
 
     if [ $? -eq 0 ]; then
-        RegistrarLog "Respaldo MySQL transferido exitosamente a /backups/mysql/$tipo/"
-        rm -f "$archivo"
+        RegistrarLog "Respaldo guardado en volumen: /backups/mysql/$tipo/$nombre_archivo"
+        rm -f "$archivo_host"
         EjecutarRotacion "$tipo"
     else
-        RegistrarLog "ERROR crítico: Falló la transferencia rsync hacia $SERVIDOR_BACKUP."
+        RegistrarLog "ERROR: Falló al copiar el respaldo al volumen Docker."
         return 1
     fi
 }
@@ -95,64 +102,70 @@ EjecutarRotacion() {
 
     case "$tipo" in
         diarios)   dias_retencion=7 ;;
-        semanales) dias_retencion=28 ;; # 4 semanas
-        mensuales) dias_retencion=365 ;; # 12 meses
+        semanales) dias_retencion=28 ;;
+        mensuales) dias_retencion=365 ;;
         *) return ;;
     esac
 
-    RegistrarLog "Aplicando política de retención en servidor de backup ($tipo: conservar $dias_retencion días)..."
+    RegistrarLog "Aplicando retención en volumen ($tipo: $dias_retencion días)..."
 
-    ssh $SSH_OPTS "$USUARIO_BACKUP@$SERVIDOR_BACKUP" \
-        "find /backups/mysql/$tipo/ -name 'mysql-*' -type f -mtime +$dias_retencion -delete" 2>/dev/null
+    docker run --rm \
+        -v sigeru_backups:/backups \
+        alpine sh -c "find /backups/mysql/$tipo/ -name 'mysql-*' -type f -mtime +$dias_retencion -delete"
 
     if [ $? -eq 0 ]; then
         RegistrarLog "Rotación de respaldos MySQL $tipo completada."
     else
-        RegistrarLog "ADVERTENCIA: No se pudo verificar la rotación remota."
+        RegistrarLog "ADVERTENCIA: No se pudo ejecutar la rotación."
     fi
 }
 
 
 # ------------------------------------------------------------------------------
-# 1. Respaldo Completo Mensual (Nivel 0 - Punto de referencia para todo el mes)
+# 1. Respaldo Completo Mensual
 # ------------------------------------------------------------------------------
 BackupCompleto() {
-    local archivo="$RUTA_TEMP/mysql-$NOMBRE_BD-completo-$FECHA.sql.bz2"
+    local sql_file="$RUTA_TEMP/mysql-$NOMBRE_BD-completo-$FECHA.sql"
+    local archivo="$RUTA_TEMP/mysql-$NOMBRE_BD-completo-$FECHA.tar.gz"
     RegistrarLog "Iniciando RESPALDO COMPLETO MENSUAL de MySQL ($NOMBRE_BD)..."
 
-    mysqldump \
-        --single-transaction \
-        --quick \
-        --routines \
-        --triggers \
-        --databases "$NOMBRE_BD" 2>> "$ARCHIVO_LOG" | bzip2 -c > "$archivo"
+    docker exec "$CONTENEDOR_DB" \
+        mysqldump \
+            -u"$DB_USER" -p"$DB_PASS" \
+            --single-transaction \
+            --quick \
+            --routines \
+            --triggers \
+            "$NOMBRE_BD" > "$sql_file" 2>>"$ARCHIVO_LOG"
 
     local dump_status=$?
-    if [ $dump_status -eq 0 ] && [ -s "$archivo" ]; then
-        mysqladmin flush-logs 2>> "$ARCHIVO_LOG"
+    if [ $dump_status -eq 0 ] && [ -s "$sql_file" ]; then
+        EjecutarMySQL "mysqladmin -u$DB_USER -p$DB_PASS flush-logs 2>/dev/null"
         local coords
         coords=$(ObtenerCoordenadasBinlog)
         echo "$coords" > "$MARKER_BASE"
         echo "$coords" > "$MARKER_LAST"
 
-        RegistrarLog "Respaldo completo de MySQL generado exitosamente ($archivo). Coordenadas: $coords"
-        EnviarBackup "$archivo" "mensuales"
+        tar -czf "$archivo" -C "$RUTA_TEMP" "$(basename "$sql_file")"
+        rm -f "$sql_file"
+
+        RegistrarLog "Respaldo completo generado ($archivo). Coordenadas: $coords"
+        GuardarEnVolumen "$archivo" "mensuales"
     else
-        RegistrarLog "ERROR: Falló mysqldump completo."
-        rm -f "$archivo"
+        RegistrarLog "ERROR: Falló mysqldump completo (código: $dump_status)."
+        rm -f "$sql_file"
     fi
 }
 
 
 # ------------------------------------------------------------------------------
-# 2. Respaldo Diferencial Semanal (Nivel 1 - Cambios desde el Completo Mensual)
+# 2. Respaldo Diferencial Semanal (binlogs desde el Completo Mensual)
 # ------------------------------------------------------------------------------
 BackupDiferencial() {
-    local archivo="$RUTA_TEMP/mysql-$NOMBRE_BD-diferencial-$FECHA.tar.bz2"
     RegistrarLog "Iniciando RESPALDO DIFERENCIAL SEMANAL de MySQL ($NOMBRE_BD)..."
 
     if [ ! -f "$MARKER_BASE" ]; then
-        RegistrarLog "ADVERTENCIA: No existe punto de inicio mensual. Ejecutando respaldo completo primero."
+        RegistrarLog "ADVERTENCIA: No existe punto base mensual. Ejecutando completo primero."
         BackupCompleto
         return
     fi
@@ -162,39 +175,40 @@ BackupDiferencial() {
     local binlog_inicio
     binlog_inicio=$(echo "$coords_inicio" | awk '{print $1}')
 
-    mysqladmin flush-logs 2>> "$ARCHIVO_LOG"
+    EjecutarMySQL "mysqladmin -u$DB_USER -p$DB_PASS flush-logs 2>/dev/null"
     local coords_actuales
     coords_actuales=$(ObtenerCoordenadasBinlog)
     local binlog_nuevo
     binlog_nuevo=$(echo "$coords_actuales" | awk '{print $1}')
 
-    local lista_logs=()
-    local capturar=0
-    while IFS= read -r log_line; do
-        log_name=$(basename "$log_line")
-        if [ "$log_name" == "$binlog_inicio" ]; then capturar=1; fi
-        if [ "$log_name" == "$binlog_nuevo" ]; then break; fi
-        if [ $capturar -eq 1 ]; then lista_logs+=("$log_name"); fi
-    done < "$BINLOG_INDEX"
+    # Extraer binlogs del contenedor al host
+    local binlogs_dir="$RUTA_TEMP/binlogs_dif_$FECHA"
+    mkdir -p "$binlogs_dir"
 
-    if [ ${#lista_logs[@]} -eq 0 ]; then
-        RegistrarLog "Sin cambios acumulados desde el respaldo completo."
-        return
-    fi
+    docker exec "$CONTENEDOR_DB" bash -c \
+        "cat /var/lib/mysql/binlog.index 2>/dev/null || ls /var/lib/mysql/mysql-bin.index 2>/dev/null || echo ''" \
+        | while IFS= read -r log_line; do
+            log_name=$(basename "$log_line")
+            if [ "$log_name" == "$binlog_nuevo" ]; then break; fi
+            if [ "$log_name" == "$binlog_inicio" ]; then
+                docker cp "$CONTENEDOR_DB:/var/lib/mysql/$log_name" "$binlogs_dir/" 2>/dev/null
+            fi
+        done
 
-    local meta_file="$RUTA_TEMP/metadata.txt"
-    echo "TIPO=DIFERENCIAL" > "$meta_file"
+    local archivo="$RUTA_TEMP/mysql-$NOMBRE_BD-diferencial-$FECHA.tar.gz"
+    local meta_file="$binlogs_dir/metadata.txt"
+    echo "TIPO=DIFERENCIAL"       > "$meta_file"
     echo "BASE_DESDE=$coords_inicio" >> "$meta_file"
     echo "HASTA=$coords_actuales" >> "$meta_file"
 
-    tar -cjf "$archivo" -C "$DIR_MYSQL" "${lista_logs[@]}" -C "$RUTA_TEMP" metadata.txt 2>> "$ARCHIVO_LOG"
+    tar -czf "$archivo" -C "$binlogs_dir" . 2>>"$ARCHIVO_LOG"
     local tar_status=$?
-    rm -f "$meta_file"
+    rm -rf "$binlogs_dir"
 
     if [ $tar_status -eq 0 ]; then
         echo "$coords_actuales" > "$MARKER_LAST"
-        RegistrarLog "Respaldo diferencial generado con ${#lista_logs[@]} binlogs ($archivo)."
-        EnviarBackup "$archivo" "semanales"
+        RegistrarLog "Respaldo diferencial generado ($archivo)."
+        GuardarEnVolumen "$archivo" "semanales"
     else
         RegistrarLog "ERROR al empaquetar diferencial."
         rm -f "$archivo"
@@ -203,14 +217,13 @@ BackupDiferencial() {
 
 
 # ------------------------------------------------------------------------------
-# 3. Respaldo Incremental Diario (Nivel 2 - Cambios respecto al día anterior)
+# 3. Respaldo Incremental Diario (binlogs desde el último marcador)
 # ------------------------------------------------------------------------------
 BackupIncremental() {
-    local archivo="$RUTA_TEMP/mysql-$NOMBRE_BD-incremental-$FECHA.tar.bz2"
     RegistrarLog "Iniciando RESPALDO INCREMENTAL DIARIO de MySQL ($NOMBRE_BD)..."
 
     if [ ! -f "$MARKER_LAST" ]; then
-        RegistrarLog "ADVERTENCIA: No existe marcador previo. Ejecutando respaldo completo base."
+        RegistrarLog "ADVERTENCIA: No existe marcador previo. Ejecutando completo base."
         BackupCompleto
         return
     fi
@@ -220,39 +233,39 @@ BackupIncremental() {
     local binlog_inicio
     binlog_inicio=$(echo "$coords_inicio" | awk '{print $1}')
 
-    mysqladmin flush-logs 2>> "$ARCHIVO_LOG"
+    EjecutarMySQL "mysqladmin -u$DB_USER -p$DB_PASS flush-logs 2>/dev/null"
     local coords_actuales
     coords_actuales=$(ObtenerCoordenadasBinlog)
     local binlog_nuevo
     binlog_nuevo=$(echo "$coords_actuales" | awk '{print $1}')
 
-    local lista_logs=()
-    local capturar=0
-    while IFS= read -r log_line; do
-        log_name=$(basename "$log_line")
-        if [ "$log_name" == "$binlog_inicio" ]; then capturar=1; fi
-        if [ "$log_name" == "$binlog_nuevo" ]; then break; fi
-        if [ $capturar -eq 1 ]; then lista_logs+=("$log_name"); fi
-    done < "$BINLOG_INDEX"
+    local binlogs_dir="$RUTA_TEMP/binlogs_inc_$FECHA"
+    mkdir -p "$binlogs_dir"
 
-    if [ ${#lista_logs[@]} -eq 0 ]; then
-        RegistrarLog "Sin transacciones nuevas para respaldar hoy."
-        return
-    fi
+    docker exec "$CONTENEDOR_DB" bash -c \
+        "cat /var/lib/mysql/binlog.index 2>/dev/null || echo ''" \
+        | while IFS= read -r log_line; do
+            log_name=$(basename "$log_line")
+            if [ "$log_name" == "$binlog_nuevo" ]; then break; fi
+            if [ "$log_name" == "$binlog_inicio" ]; then
+                docker cp "$CONTENEDOR_DB:/var/lib/mysql/$log_name" "$binlogs_dir/" 2>/dev/null
+            fi
+        done
 
-    local meta_file="$RUTA_TEMP/metadata.txt"
-    echo "TIPO=INCREMENTAL" > "$meta_file"
-    echo "DESDE=$coords_inicio" >> "$meta_file"
+    local archivo="$RUTA_TEMP/mysql-$NOMBRE_BD-incremental-$FECHA.tar.gz"
+    local meta_file="$binlogs_dir/metadata.txt"
+    echo "TIPO=INCREMENTAL"      > "$meta_file"
+    echo "DESDE=$coords_inicio"  >> "$meta_file"
     echo "HASTA=$coords_actuales" >> "$meta_file"
 
-    tar -cjf "$archivo" -C "$DIR_MYSQL" "${lista_logs[@]}" -C "$RUTA_TEMP" metadata.txt 2>> "$ARCHIVO_LOG"
+    tar -czf "$archivo" -C "$binlogs_dir" . 2>>"$ARCHIVO_LOG"
     local tar_status=$?
-    rm -f "$meta_file"
+    rm -rf "$binlogs_dir"
 
     if [ $tar_status -eq 0 ]; then
         echo "$coords_actuales" > "$MARKER_LAST"
-        RegistrarLog "Respaldo incremental generado con ${#lista_logs[@]} binlogs ($archivo)."
-        EnviarBackup "$archivo" "diarios"
+        RegistrarLog "Respaldo incremental generado ($archivo)."
+        GuardarEnVolumen "$archivo" "diarios"
     else
         RegistrarLog "ERROR al empaquetar incremental."
         rm -f "$archivo"
@@ -266,6 +279,7 @@ BackupIncremental() {
 
 ValidarPermisos
 PrepararDirectorios
+VerificarContenedor
 
 case "$1" in
     incremental|diario)
@@ -279,14 +293,16 @@ case "$1" in
         ;;
     *)
         echo "======================================================="
-        echo "        SiGeRU - Gestión de Respaldos de MySQL        "
+        echo "    SiGeRU - Gestión de Respaldos de MySQL (Docker)    "
         echo "======================================================="
         echo "Uso: $0 {incremental|diferencial|completo}"
         echo
         echo "Opciones:"
-        echo "  incremental  : Respaldo diario de cambios (Retención: 7 días)"
+        echo "  incremental  : Respaldo diario de binlogs  (Retención: 7 días)"
         echo "  diferencial  : Respaldo semanal vs. base mensual (Retención: 4 semanas)"
-        echo "  completo     : Respaldo mensual base de referencia (Retención: 12 meses)"
+        echo "  completo     : Respaldo mensual mysqldump  (Retención: 12 meses)"
+        echo
+        echo "Los respaldos se almacenan en el volumen Docker 'sigeru_backups'."
         exit 1
         ;;
 esac

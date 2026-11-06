@@ -1,29 +1,24 @@
 #!/bin/bash
 
 # ==============================================================================
-# SiGeRU - Gestión de respaldos
-# Servidor de aplicaciones (192.168.1.10)
+# SiGeRU - Gestión de respaldos del servidor web (contenedor + código fuente)
+# Contenedor: sigeru_web (Apache + PHP 8)
 # Esquema: Completo (Mensual) + Diferencial (Semanal) + Incremental (Diario)
+# Los respaldos se guardan en el volumen Docker: sigeru_backups -> /backups
 # ==============================================================================
 
-# Configuración del servidor de backup
-SERVIDOR_BACKUP="192.168.1.12"
-USUARIO_BACKUP="respaldo"
-PUERTO_SSH="2026"
+set -o pipefail
 
-# Rutas locales a respaldar
-RUTA_APP="/var/www/html"
-RUTA_CONF_HTTPD="/etc/httpd"
+# Configuración
+CONTENEDOR_WEB="sigeru_web"
+DIR_PROYECTO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Rutas temporales y de control
-RUTA_TEMP="/var/backups/sigeru"
+# Rutas de control (.snar) en el HOST
 DIR_SNAR="/var/lib/sigeru-backup"
 SNAR_BASE="$DIR_SNAR/aplicacion_base.snar"
 SNAR_INC="$DIR_SNAR/aplicacion_inc.snar"
 ARCHIVO_LOG="/var/log/sigeru-backup.log"
-
-# Opciones SSH seguras para ejecución desatendida
-SSH_OPTS="-p $PUERTO_SSH -o BatchMode=yes -o ConnectTimeout=15"
+RUTA_TEMP="/tmp/sigeru-backup-app"
 FECHA=$(date +"%Y-%m-%d_%H-%M-%S")
 
 
@@ -47,32 +42,25 @@ PrepararDirectorios() {
 }
 
 
-EnviarBackup() {
-    local archivo="$1"
+GuardarEnVolumen() {
+    local archivo_host="$1"
     local tipo="$2"
+    local nombre_archivo
+    nombre_archivo=$(basename "$archivo_host")
 
-    if [ ! -f "$archivo" ]; then
-        RegistrarLog "ERROR: El archivo $archivo no existe para transferir."
-        return 1
-    fi
+    RegistrarLog "Copiando respaldo al volumen Docker (sigeru_backups/$tipo/)..."
 
-    local tamano
-    tamano=$(du -h "$archivo" | cut -f1)
-    RegistrarLog "Enviando respaldo ($tamano) al servidor $SERVIDOR_BACKUP en '$tipo'..."
-
-    # Transferencia con creación automática del directorio remoto si no existe
-    rsync -avz \
-        --rsync-path="mkdir -p /backups/aplicaciones/$tipo && rsync" \
-        -e "ssh $SSH_OPTS" \
-        "$archivo" \
-        "$USUARIO_BACKUP@$SERVIDOR_BACKUP:/backups/aplicaciones/$tipo/"
+    docker run --rm \
+        -v sigeru_backups:/backups \
+        -v "$archivo_host":/tmp/entrada/"$nombre_archivo":ro \
+        alpine sh -c "mkdir -p /backups/aplicaciones/$tipo && cp /tmp/entrada/$nombre_archivo /backups/aplicaciones/$tipo/"
 
     if [ $? -eq 0 ]; then
-        RegistrarLog "Respaldo transferido exitosamente a /backups/aplicaciones/$tipo/"
-        rm -f "$archivo"
+        RegistrarLog "Respaldo guardado en volumen: /backups/aplicaciones/$tipo/$nombre_archivo"
+        rm -f "$archivo_host"
         EjecutarRotacion "$tipo"
     else
-        RegistrarLog "ERROR crítico: Falló la transferencia rsync hacia $SERVIDOR_BACKUP."
+        RegistrarLog "ERROR: Falló al copiar el respaldo al volumen Docker."
         return 1
     fi
 }
@@ -84,111 +72,116 @@ EjecutarRotacion() {
 
     case "$tipo" in
         diarios)   dias_retencion=7 ;;
-        semanales) dias_retencion=28 ;; # 4 semanas
-        mensuales) dias_retencion=365 ;; # 12 meses
+        semanales) dias_retencion=28 ;;
+        mensuales) dias_retencion=365 ;;
         *) return ;;
     esac
 
-    RegistrarLog "Aplicando política de retención en servidor de backup ($tipo: conservar $dias_retencion días)..."
+    RegistrarLog "Aplicando retención en volumen ($tipo: $dias_retencion días)..."
 
-    ssh $SSH_OPTS "$USUARIO_BACKUP@$SERVIDOR_BACKUP" \
-        "find /backups/aplicaciones/$tipo/ -name '*.tar.bz2' -type f -mtime +$dias_retencion -delete" 2>/dev/null
+    docker run --rm \
+        -v sigeru_backups:/backups \
+        alpine sh -c "find /backups/aplicaciones/$tipo/ -name '*.tar.gz' -type f -mtime +$dias_retencion -delete"
 
     if [ $? -eq 0 ]; then
-        RegistrarLog "Rotación de respaldos $tipo completada."
+        RegistrarLog "Rotación de respaldos de aplicación $tipo completada."
     else
-        RegistrarLog "ADVERTENCIA: No se pudo verificar la rotación remota."
+        RegistrarLog "ADVERTENCIA: No se pudo ejecutar la rotación."
     fi
 }
 
 
 # ------------------------------------------------------------------------------
-# 1. Respaldo Completo Mensual (Nivel 0 - Punto de referencia para todo el mes)
+# 1. Respaldo Completo Mensual (Nivel 0)
 # ------------------------------------------------------------------------------
 BackupCompleto() {
-    local archivo="$RUTA_TEMP/aplicacion-completo-$FECHA.tar.bz2"
+    local archivo="$RUTA_TEMP/aplicacion-completo-$FECHA.tar.gz"
     RegistrarLog "Iniciando RESPALDO COMPLETO MENSUAL (Nivel 0)..."
 
-    # Se borran snapshots anteriores para crear el nuevo estado base mensual
+    # Borrar snapshots anteriores para crear nuevo estado base mensual
     rm -f "$SNAR_BASE" "$SNAR_INC"
 
+    # Respaldar el directorio del proyecto en el host (el código fuente)
     tar --listed-incremental="$SNAR_BASE" \
-        -cjf "$archivo" \
-        "$RUTA_APP" \
-        "$RUTA_CONF_HTTPD" 2>> "$ARCHIVO_LOG"
+        -czf "$archivo" \
+        --exclude="$DIR_PROYECTO/.git" \
+        --exclude="$DIR_PROYECTO/docker" \
+        "$DIR_PROYECTO" 2>>"$ARCHIVO_LOG"
 
     local tar_status=$?
     if [ $tar_status -eq 0 ] || [ $tar_status -eq 1 ]; then
-        # Sincronizamos el snapshot incremental para que el lunes continúe desde aquí
         cp "$SNAR_BASE" "$SNAR_INC"
-        RegistrarLog "Respaldo completo mensual generado correctamente ($archivo)."
-        EnviarBackup "$archivo" "mensuales"
+        RegistrarLog "Respaldo completo mensual generado ($archivo)."
+        GuardarEnVolumen "$archivo" "mensuales"
     else
         RegistrarLog "ERROR al generar respaldo completo (Código tar: $tar_status)."
+        rm -f "$archivo"
     fi
 }
 
 
 # ------------------------------------------------------------------------------
-# 2. Respaldo Diferencial Semanal (Nivel 1 - Cambios desde el Completo Mensual)
+# 2. Respaldo Diferencial Semanal (Nivel 1 - cambios desde el Completo)
 # ------------------------------------------------------------------------------
 BackupDiferencial() {
-    local archivo="$RUTA_TEMP/aplicacion-diferencial-$FECHA.tar.bz2"
-    RegistrarLog "Iniciando RESPALDO DIFERENCIAL SEMANAL (Cambios respecto al mensual)..."
+    local archivo="$RUTA_TEMP/aplicacion-diferencial-$FECHA.tar.gz"
+    RegistrarLog "Iniciando RESPALDO DIFERENCIAL SEMANAL (cambios respecto al mensual)..."
 
     if [ ! -f "$SNAR_BASE" ]; then
-        RegistrarLog "ADVERTENCIA: No existe snapshot base mensual. Ejecutando respaldo completo primero."
+        RegistrarLog "ADVERTENCIA: No existe snapshot base mensual. Ejecutando completo primero."
         BackupCompleto
         return
     fi
 
-    # Se copia el snapshot base mensual a uno temporal para no sobreescribir la base
     local snar_dif_temp="$DIR_SNAR/temp_dif.snar"
     cp "$SNAR_BASE" "$snar_dif_temp"
 
     tar --listed-incremental="$snar_dif_temp" \
-        -cjf "$archivo" \
-        "$RUTA_APP" \
-        "$RUTA_CONF_HTTPD" 2>> "$ARCHIVO_LOG"
+        -czf "$archivo" \
+        --exclude="$DIR_PROYECTO/.git" \
+        --exclude="$DIR_PROYECTO/docker" \
+        "$DIR_PROYECTO" 2>>"$ARCHIVO_LOG"
 
     local tar_status=$?
     if [ $tar_status -eq 0 ] || [ $tar_status -eq 1 ]; then
-        # Actualizamos el snapshot incremental con el estado de este domingo
         cp "$snar_dif_temp" "$SNAR_INC"
         rm -f "$snar_dif_temp"
-        RegistrarLog "Respaldo diferencial generado correctamente ($archivo)."
-        EnviarBackup "$archivo" "semanales"
+        RegistrarLog "Respaldo diferencial generado ($archivo)."
+        GuardarEnVolumen "$archivo" "semanales"
     else
         rm -f "$snar_dif_temp"
         RegistrarLog "ERROR al generar respaldo diferencial (Código tar: $tar_status)."
+        rm -f "$archivo"
     fi
 }
 
 
 # ------------------------------------------------------------------------------
-# 3. Respaldo Incremental Diario (Nivel 2 - Cambios respecto al día anterior)
+# 3. Respaldo Incremental Diario (Nivel 2 - cambios respecto al día anterior)
 # ------------------------------------------------------------------------------
 BackupIncremental() {
-    local archivo="$RUTA_TEMP/aplicacion-incremental-$FECHA.tar.bz2"
-    RegistrarLog "Iniciando RESPALDO INCREMENTAL DIARIO (Cambios respecto a última copia)..."
+    local archivo="$RUTA_TEMP/aplicacion-incremental-$FECHA.tar.gz"
+    RegistrarLog "Iniciando RESPALDO INCREMENTAL DIARIO (cambios respecto a última copia)..."
 
     if [ ! -f "$SNAR_INC" ]; then
-        RegistrarLog "ADVERTENCIA: No existe snapshot incremental previo. Generando respaldo completo base."
+        RegistrarLog "ADVERTENCIA: No existe snapshot incremental previo. Generando completo base."
         BackupCompleto
         return
     fi
 
     tar --listed-incremental="$SNAR_INC" \
-        -cjf "$archivo" \
-        "$RUTA_APP" \
-        "$RUTA_CONF_HTTPD" 2>> "$ARCHIVO_LOG"
+        -czf "$archivo" \
+        --exclude="$DIR_PROYECTO/.git" \
+        --exclude="$DIR_PROYECTO/docker" \
+        "$DIR_PROYECTO" 2>>"$ARCHIVO_LOG"
 
     local tar_status=$?
     if [ $tar_status -eq 0 ] || [ $tar_status -eq 1 ]; then
-        RegistrarLog "Respaldo incremental diario generado correctamente ($archivo)."
-        EnviarBackup "$archivo" "diarios"
+        RegistrarLog "Respaldo incremental diario generado ($archivo)."
+        GuardarEnVolumen "$archivo" "diarios"
     else
         RegistrarLog "ERROR al generar respaldo incremental (Código tar: $tar_status)."
+        rm -f "$archivo"
     fi
 }
 
@@ -212,14 +205,16 @@ case "$1" in
         ;;
     *)
         echo "======================================================="
-        echo "        SiGeRU - Gestión de Respaldos de Aplicación   "
+        echo "  SiGeRU - Gestión de Respaldos de Aplicación (Docker) "
         echo "======================================================="
         echo "Uso: $0 {incremental|diferencial|completo}"
         echo
         echo "Opciones:"
-        echo "  incremental  : Respaldo diario de cambios (Retención: 7 días)"
+        echo "  incremental  : Respaldo diario de cambios  (Retención: 7 días)"
         echo "  diferencial  : Respaldo semanal vs. base mensual (Retención: 4 semanas)"
         echo "  completo     : Respaldo mensual base de referencia (Retención: 12 meses)"
+        echo
+        echo "Los respaldos se almacenan en el volumen Docker 'sigeru_backups'."
         exit 1
         ;;
 esac

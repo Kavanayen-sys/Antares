@@ -1,0 +1,96 @@
+services:
+
+  # ─────────────────────────────────────────────
+  # CONTENEDOR WEB: Apache + PHP 8
+  # ─────────────────────────────────────────────
+  web:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: sigeru_web
+    ports:
+      - "8090:8090"   # Frontend
+      - "8091:8091"   # API Usuarios
+      - "8092:8092"   # API Logistica
+      - "8093:8093"   # API Contenedores
+      - "8094:8094"   # API Centros
+    volumes:
+      - .:/var/www/html
+    environment:
+      SIGERU_DB_HOST: db
+      SIGERU_DB_PORT: 3306
+      SIGERU_DB_USER: root
+      SIGERU_DB_PASSWORD: sigeru123
+      SIGERU_DB_NAME: sigeru
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sigeru_network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # CONTENEDOR DE BASE DE DATOS: MySQL 8
+  # ─────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: sigeru_db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: sigeru123
+      MYSQL_DATABASE: sigeru
+      MYSQL_USER: sigeru
+      MYSQL_PASSWORD: sigeru123
+    volumes:
+      - sigeru_db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/datos_prueba.sql:/docker-entrypoint-initdb.d/02-datos.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=sigeru123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - sigeru_network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # SERVICIO DE RESPALDO: Almacenamiento TAR.GZ
+  # ─────────────────────────────────────────────
+  backup:
+    build:
+      context: ./docker/backup
+      dockerfile: Dockerfile
+    container_name: sigeru_backup
+    environment:
+      SIGERU_DB_HOST: db
+      SIGERU_DB_PORT: 3306
+      SIGERU_DB_USER: sigeru
+      SIGERU_DB_PASSWORD: sigeru123
+      SIGERU_DB_NAME: sigeru
+    volumes:
+      - sigeru_backups:/backups
+      - .:/app_data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sigeru_network
+    restart: unless-stopped
+
+
+# ─────────────────────────────────────────────
+# REDES
+# ─────────────────────────────────────────────
+networks:
+  sigeru_network:
+    driver: bridge
+
+# ─────────────────────────────────────────────
+# VOLÚMENES PERSISTENTES
+# ─────────────────────────────────────────────
+volumes:
+  sigeru_db_data:
+  sigeru_backups:
