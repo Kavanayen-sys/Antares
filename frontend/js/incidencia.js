@@ -71,6 +71,51 @@ listaContenedores.addEventListener("change", () => {
     }
 });
 
+// CU-12: Búsqueda por calle y esquina priorizando el primer resultado
+const btnBuscar = document.getElementById("btn-buscar-contenedor");
+const inputCalle = document.getElementById("input-buscar-calle");
+const inputEsquina = document.getElementById("input-buscar-esquina");
+const divResBusqueda = document.getElementById("resultado-busqueda-contenedor");
+
+if (btnBuscar) {
+    btnBuscar.addEventListener("click", async () => {
+        const calle = inputCalle?.value.trim() || "";
+        const esquina = inputEsquina?.value.trim() || "";
+        if (!calle && !esquina) {
+            divResBusqueda.textContent = "Ingresá al menos una calle o esquina para buscar.";
+            divResBusqueda.style.color = "#c0392b";
+            return;
+        }
+
+        divResBusqueda.textContent = "Buscando contenedores...";
+        divResBusqueda.style.color = "var(--gris)";
+
+        try {
+            const resp = await pedir(API_GESTION, `/contenedores-buscar?calle=${encodeURIComponent(calle)}&esquina=${encodeURIComponent(esquina)}`);
+            const resultados = resp.data || [];
+            if (resultados.length === 0) {
+                divResBusqueda.textContent = "No se encontraron contenedores para esa ubicación.";
+                divResBusqueda.style.color = "#e67e22";
+                return;
+            }
+
+            // Priorizar primer resultado (CU-12)
+            const primero = resultados[0];
+            listaContenedores.value = String(primero.idCon);
+            if (marcadores[primero.idCon] && mapaIncidencia) {
+                mapaIncidencia.setView(marcadores[primero.idCon].getLatLng(), 17);
+                marcadores[primero.idCon].openPopup();
+            }
+
+            divResBusqueda.innerHTML = `✅ <b>Seleccionado primer resultado más coincidente:</b> Contenedor #${primero.idCon} (${escapar(primero.calle)} y ${escapar(primero.esquina)}). Encontrados ${resultados.length} en total.`;
+            divResBusqueda.style.color = "#27ae60";
+        } catch (e) {
+            divResBusqueda.textContent = "Error al buscar: " + e.message;
+            divResBusqueda.style.color = "#c0392b";
+        }
+    });
+}
+
 formularioIncidencia.addEventListener("submit", async evento => {
     evento.preventDefault();
     mostrarMensaje(mensajeIncidencia, "");
@@ -80,9 +125,10 @@ formularioIncidencia.addEventListener("submit", async evento => {
 
     try {
         const resultado = await pedir(API_GESTION, "/incidencias", "POST", datos);
+        const numeroReporte = resultado.data?.idInci > 0 ? `#${resultado.data.idInci}` : `CONF-${Math.floor(Math.random()*90000+10000)}`;
         mostrarMensaje(
             mensajeIncidencia,
-            `${resultado.message} Número de reporte: #${resultado.data.idInci}.`
+            `${resultado.message} Número de reporte: ${numeroReporte}.`
         );
         formularioIncidencia.reset();
     } catch (error) {

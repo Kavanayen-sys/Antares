@@ -2,17 +2,42 @@
 
 const servidor = window.location.hostname || "localhost";
 const API_USUARIOS = `http://${servidor}:8091`;
+const API_LOGISTICA = `http://${servidor}:8092`;
+const API_CONTENEDORES = `http://${servidor}:8093`;
+const API_CENTROS = `http://${servidor}:8094`;
 const API_GESTION = `http://${servidor}:8092`;
-let tokenCsrf = "";
+
+const tokensCsrf = {};
+
+function resolverBasePorRuta(base, ruta) {
+    if (base && base !== API_GESTION) {
+        return base;
+    }
+    if (ruta.startsWith("/usuarios") || ruta.startsWith("/login") || ruta.startsWith("/logout") || ruta.startsWith("/sesion") || ruta.startsWith("/registro") || ruta.startsWith("/mi-perfil") || ruta.startsWith("/solicitar-recuperacion") || ruta.startsWith("/confirmar-recuperacion") || ruta.startsWith("/logs-login")) {
+        return API_USUARIOS;
+    }
+    if (ruta.startsWith("/contenedores") || ruta.startsWith("/incidencias") || ruta.startsWith("/cedulas-bloqueadas")) {
+        return API_CONTENEDORES;
+    }
+    if (ruta.startsWith("/centros") || ruta.startsWith("/vertederos") || ruta.startsWith("/maquinaria") || ruta.startsWith("/descargas") || ruta.startsWith("/llegada-camion") || ruta.startsWith("/envios-vertedero")) {
+        return API_CENTROS;
+    }
+    return API_LOGISTICA;
+}
 
 async function pedir(base, ruta, metodo = "GET", datos = null) {
-    if (!tokenCsrf) {
-        const respuestaToken = await fetch(`${base}/csrf`, { credentials: "include" });
-        const resultadoToken = await respuestaToken.json();
-        if (!respuestaToken.ok) {
-            throw new Error(resultadoToken.error || "No se pudo iniciar la comunicación con la API.");
+    const urlBase = resolverBasePorRuta(base, ruta);
+
+    if (!tokensCsrf[urlBase]) {
+        try {
+            const respuestaToken = await fetch(`${urlBase}/csrf`, { credentials: "include" });
+            const resultadoToken = await respuestaToken.json();
+            if (respuestaToken.ok && resultadoToken?.data?.csrf) {
+                tokensCsrf[urlBase] = resultadoToken.data.csrf;
+            }
+        } catch (e) {
+            // Silencioso
         }
-        tokenCsrf = resultadoToken.data.csrf;
     }
 
     const opciones = {
@@ -21,15 +46,22 @@ async function pedir(base, ruta, metodo = "GET", datos = null) {
         headers: { "Content-Type": "application/json" }
     };
 
-    if (["POST", "PUT", "DELETE"].includes(metodo)) {
-        opciones.headers["X-CSRF-Token"] = tokenCsrf;
+    if (["POST", "PUT", "DELETE"].includes(metodo) && tokensCsrf[urlBase]) {
+        opciones.headers["X-CSRF-Token"] = tokensCsrf[urlBase];
     }
     if (datos !== null) {
         opciones.body = JSON.stringify(datos);
     }
 
-    const respuesta = await fetch(base + ruta, opciones);
-    const resultado = await respuesta.json();
+    const respuesta = await fetch(urlBase + ruta, opciones);
+    const texto = await respuesta.text();
+    let resultado = {};
+    try {
+        resultado = texto ? JSON.parse(texto) : {};
+    } catch (e) {
+        console.error("Respuesta no es JSON:", texto);
+        throw new Error("El servidor devolvió una respuesta inesperada (" + respuesta.status + ").");
+    }
     if (!respuesta.ok) {
         const error = new Error(resultado.error || "No se pudo completar la operación.");
         error.estado = respuesta.status;

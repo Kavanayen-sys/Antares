@@ -44,8 +44,8 @@ Versión simple realizada con HTML, CSS, JavaScript, PHP 8 y MySQL 8.
 Se necesita MySQL 8 iniciado. Desde una terminal, dentro de `primera-entrega`:
 
 ```powershell
-mysql -u root -p -e "source database/ddl.sql"
-mysql -u root -p sigeru -e "source database/datos-prueba.sql"
+mysql -u root -p -e "source database/schema.sql"
+mysql -u root -p sigeru -e "source database/datos_prueba.sql"
 ```
 
 Si el usuario `root` no tiene contraseña, presionar Enter cuando MySQL la solicite.
