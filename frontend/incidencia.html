@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reportar incidencia | SiGeRU</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
@@ -13,6 +15,18 @@
         <p>Reporte de problemas en contenedores</p>
 
         <h1>Reportar incidencia</h1>
+
+        <!-- CU-12: Buscar contenedor por calle y esquina (priorizando primer resultado) -->
+        <div style="background: #f4f6f9; border: 1px solid var(--borde); padding: 12px 14px; border-radius: 8px; margin-bottom: 14px;">
+            <b style="font-size: 0.95rem; color: var(--azul-oscuro); display: block; margin-bottom: 6px;">🔍 Buscar contenedor por calle y esquina:</b>
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px;">
+                <input id="input-buscar-calle" type="text" placeholder="Calle (ej: 18 de Julio)" style="padding: 6px 10px; font-size: 0.9rem;">
+                <input id="input-buscar-esquina" type="text" placeholder="Esquina (ej: Ejido)" style="padding: 6px 10px; font-size: 0.9rem;">
+                <button type="button" class="boton" id="btn-buscar-contenedor" style="padding: 6px 14px; font-size: 0.9rem;">Buscar</button>
+            </div>
+            <div id="resultado-busqueda-contenedor" style="font-size: 0.85rem; color: var(--gris); margin-top: 6px;"></div>
+        </div>
+
         <form id="form-incidencia">
             <label>Ubicación del contenedor (seleccioná en el mapa o en la lista):</label>
             <div id="mapa-incidencia" style="height: 280px; width: 100%; border-radius: 8px; border: 1px solid var(--borde); margin-bottom: 14px; z-index: 1;"></div>

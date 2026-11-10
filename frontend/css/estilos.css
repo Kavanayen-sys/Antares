@@ -633,3 +633,15 @@ td.acciones-tabla {
     background: #dcfce7;
     color: #166534;
 }
+
+.input-filtro-tabla {
+    width: 100%;
+    max-width: 380px;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    background: #fff;
+    display: inline-block;
+}

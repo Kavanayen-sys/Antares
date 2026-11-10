@@ -4,25 +4,50 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel | SiGeRU</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="css/estilos.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="panel">
     <header class="panel-cabecera">
         <b>SiGeRU</b>
         <span id="usuario-sesion-info">Cargando sesión...</span>
-        <button type="button" id="cerrar-sesion">Salir</button>
+        <div style="display: flex; align-items: center; gap: 10px; position: relative; margin-left: auto;">
+            <!-- Botón de Notificaciones con Campana y Contador -->
+            <button type="button" id="btn-notificaciones" style="position: relative; background: #ffffff; border: 1px solid var(--borde); color: var(--texto); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-left: 0;">
+                🔔 <span>Notificaciones</span>
+                <span id="contador-notificaciones" style="background: #e74c3c; color: #ffffff; border-radius: 10px; padding: 2px 7px; font-size: 0.75rem; font-weight: bold; min-width: 18px; text-align: center; line-height: 1;">0</span>
+            </button>
+
+            <!-- Desplegable de Notificaciones y Avisos Críticos -->
+            <div id="dropdown-notificaciones" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; width: 340px; background: white; color: var(--texto); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); border: 1px solid var(--borde); z-index: 1000; overflow: hidden; text-align: left;">
+                <div style="padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid var(--borde); display: flex; justify-content: space-between; align-items: center;">
+                    <b style="font-size: 0.88rem; color: var(--texto);">Avisos y Alertas</b>
+                    <button type="button" id="btn-limpiar-notificaciones" style="background: none; border: none; font-size: 0.78rem; color: var(--verde); font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; margin-left: 0;">Marcar leídas</button>
+                </div>
+                <div id="lista-notificaciones" style="max-height: 280px; overflow-y: auto;">
+                    <!-- Rellenado dinámicamente -->
+                </div>
+            </div>
+
+            <button type="button" id="btn-mi-perfil" style="background: #ffffff; border: 1px solid var(--borde); color: var(--texto); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-left: 0;">👤 Mi Perfil</button>
+            <button type="button" id="cerrar-sesion" style="background: #566860; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; font-weight: 500; margin-left: 0;">Salir</button>
+        </div>
     </header>
 
     <aside class="panel-menu">
         <button class="activo" type="button" data-seccion="resumen" data-roles="administrador,municipal">Resumen</button>
-        <button type="button" data-seccion="mi-ruta" data-roles="cuadrilla,administrador,municipal">Mi Ruta</button>
+        <button type="button" data-seccion="mi-ruta" data-roles="cuadrilla">Mi Ruta</button>
         <button type="button" data-seccion="rutas" data-roles="administrador,municipal,cuadrilla">Rutas</button>
         <button type="button" data-seccion="cuadrillas" data-roles="administrador,municipal">Cuadrillas</button>
         <button type="button" data-seccion="asignaciones" data-roles="administrador,municipal,cuadrilla">Asignaciones</button>
         <button type="button" data-seccion="contenedores" data-roles="administrador,municipal">Contenedores</button>
         <button type="button" data-seccion="camiones" data-roles="administrador,municipal">Vehículos</button>
         <button type="button" data-seccion="incidencias" data-roles="administrador,municipal,cuadrilla">Incidencias</button>
+        <button type="button" data-seccion="garajes" data-roles="administrador,municipal">Garajes y Estac.</button>
+        <button type="button" data-seccion="mantenimiento" data-roles="administrador,municipal">Talleres y Mant.</button>
         <button type="button" data-seccion="maquinaria" data-roles="administrador,operario,municipal">Maquinaria</button>
         <button type="button" data-seccion="centros" data-roles="administrador,operario,municipal">Centros y Vertederos</button>
         <button type="button" data-seccion="usuarios" data-roles="administrador">Usuarios</button>
@@ -44,7 +69,29 @@
                 <article><span>Maquinaria</span><b id="cantidad-maquinaria">0</b></article>
                 <article><span>Centros</span><b id="cantidad-centros">0</b></article>
             </div>
-            <p style="margin-top: 20px; color: var(--gris);">Bienvenido al sistema de gestión. Seleccioná una sección del menú lateral según tu rol.</p>
+
+            <!-- CU-03: Creación de Estadísticas y Gráficos Interactivos -->
+            <h2 style="margin-top: 28px; margin-bottom: 14px;">Estadísticas Operativas del Sistema</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid var(--borde); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--azul-oscuro);">Incidencias por Estado</h3>
+                    <div style="height: 220px; position: relative;">
+                        <canvas id="grafico-incidencias-estado"></canvas>
+                    </div>
+                </div>
+                <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid var(--borde); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--azul-oscuro);">Problemas Reportados</h3>
+                    <div style="height: 220px; position: relative;">
+                        <canvas id="grafico-incidencias-tipo"></canvas>
+                    </div>
+                </div>
+                <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid var(--borde); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--azul-oscuro);">Disponibilidad de Flota</h3>
+                    <div style="height: 220px; position: relative;">
+                        <canvas id="grafico-flota-estado"></canvas>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- SECCION: MI RUTA (ROL CUADRILLA) -->
@@ -58,6 +105,10 @@
                 <!-- Rellenado dinámicamente con vehículo, chofer/peon, ruta -->
             </div>
 
+            <!-- CU-18: Mapa Interactivo con el trazado del recorrido -->
+            <h2>Recorrido Georreferenciado en el Mapa</h2>
+            <div id="mapa-mi-ruta" style="height: 340px; width: 100%; border-radius: 8px; border: 1px solid var(--borde); margin-bottom: 24px; z-index: 1;"></div>
+
             <h2>Paradas y Contenedores en el Recorrido</h2>
             <div class="tabla-contenedor" style="margin-bottom: 28px;">
                 <table>
@@ -68,6 +119,7 @@
 
             <h2>Incidencias en los Contenedores de tu Ruta</h2>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-mi-ruta-incidencias" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID</th><th>Parada #</th><th>Fecha</th><th>Contenedor</th><th>Problema</th><th>Prioridad</th><th>Estado (Acción)</th></tr></thead>
                     <tbody id="tabla-mi-ruta-incidencias"></tbody>
@@ -82,6 +134,7 @@
                 <button class="boton" type="button" data-nuevo="ruta" data-roles="administrador,municipal">Nueva ruta</button>
             </div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-rutas" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID</th><th>Frecuencia</th><th>Centro Destino</th><th>Contenedores</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-rutas"></tbody>
@@ -116,8 +169,9 @@
                 <button class="boton" type="button" data-nuevo="cuadrilla">Nueva cuadrilla</button>
             </div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-cuadrillas" class="input-filtro-tabla">
                 <table>
-                    <thead><tr><th>ID</th><th>Chofer</th><th>Tel. Chofer</th><th>Peón</th><th>Tel. Peón</th><th>Acciones</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Chofer</th><th>Tel. Chofer</th><th>Peón</th><th>Tel. Peón</th><th>Vehículo Asignado</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-cuadrillas"></tbody>
                 </table>
             </div>
@@ -130,6 +184,11 @@
                     </label>
                     <label>Peón (Rol Cuadrilla)
                         <select name="idPeon" id="select-cuadrilla-peon" required></select>
+                    </label>
+                    <label>Vehículo asignado a la cuadrilla
+                        <select name="idVehi" id="select-cuadrilla-vehiculo">
+                            <option value="">(Sin vehículo asignado)</option>
+                        </select>
                     </label>
                 </div>
                 <div class="acciones-editor">
@@ -146,6 +205,7 @@
                 <button class="boton" type="button" data-nuevo="asignacion" data-roles="administrador,municipal">Nueva asignación</button>
             </div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-asignaciones" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID Op.</th><th>Fecha</th><th>Cuadrilla</th><th>Vehículo</th><th>Ruta Asignada</th></tr></thead>
                     <tbody id="tabla-asignaciones"></tbody>
@@ -184,6 +244,7 @@
             </div>
             <div id="mapa-general-contenedores" style="height: 320px; width: 100%; border-radius: 8px; border: 1px solid var(--borde); margin-bottom: 18px; z-index: 1;"></div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-contenedores" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID</th><th>Ubicación</th><th>Zona</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-contenedores"></tbody>
@@ -237,6 +298,7 @@
                 <button class="boton" type="button" data-nuevo="camion">Nuevo vehículo</button>
             </div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-camiones" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID</th><th>Matrícula</th><th>Marca y modelo</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-camiones"></tbody>
@@ -279,11 +341,146 @@
                 <div><h1>Incidencias Generales</h1><p>Reportes recibidos y estado de atención.</p></div>
             </div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-incidencias" class="input-filtro-tabla">
                 <table>
-                    <thead><tr><th>ID</th><th>Fecha</th><th>Contenedor</th><th>Problema</th><th>Prioridad</th><th>Acciones (Estado)</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Fecha</th><th>Contenedor</th><th>Problema</th><th>Prioridad</th><th>Equipo Asignado</th><th>Estado</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-incidencias"></tbody>
                 </table>
             </div>
+
+            <!-- Modal para Asignar Incidencia a Equipo Especializado -->
+            <dialog id="dialogo-asignar-incidencia" style="border: 1px solid var(--borde); border-radius: 8px; padding: 22px; max-width: 480px; width: 90%; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+                <h2 style="margin-top: 0; font-size: 1.25rem;">Asignar Incidencia a Equipo Especializado</h2>
+                <p id="info-asignar-incidencia" style="font-size: 0.9rem; color: #444; margin-bottom: 14px;"></p>
+                <form id="form-asignar-incidencia">
+                    <input type="hidden" name="idInci" id="input-asignar-inci-id">
+                    <label style="display: block; font-weight: bold; margin-bottom: 6px;">Seleccionar Vehículo / Equipo Especializado:
+                        <select name="idVehi" id="select-asignar-vehi" required style="width: 100%; margin-top: 6px; padding: 8px;">
+                        </select>
+                    </label>
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px;">
+                        <button type="button" class="boton secundario" id="btn-cerrar-asignar-incidencia">Cancelar</button>
+                        <button type="submit" class="boton">Confirmar Asignación</button>
+                    </div>
+                </form>
+            </dialog>
+        </section>
+
+        <!-- SECCION: GARAJES Y ESTACIONAMIENTOS (CU-25 / CU-26) -->
+        <section class="seccion-panel" id="seccion-garajes">
+            <div class="titulo-seccion">
+                <div><h1>Garajes y Estacionamientos</h1><p>Gestión de cocheras municipales y registro de flota estacionada.</p></div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="boton" type="button" data-nuevo="garaje" data-roles="administrador,municipal">Nuevo Garaje</button>
+                    <button class="boton secundario" type="button" data-nuevo="estacionamiento" data-roles="administrador,municipal,cuadrilla">Estacionar Vehículo</button>
+                </div>
+            </div>
+
+            <h2>Garajes Municipales Registrados</h2>
+            <div class="tabla-contenedor" style="margin-bottom: 24px;">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-garajes" class="input-filtro-tabla">
+                <table>
+                    <thead><tr><th>ID</th><th>Ubicación</th><th>Vehículos en Garaje</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-garajes"></tbody>
+                </table>
+            </div>
+
+            <form class="editor" id="form-garaje" hidden style="margin-bottom: 24px;">
+                <h2 id="titulo-form-garaje">Nuevo Garaje</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Ubicación del Garaje<input name="ubiGaraje" maxlength="150" placeholder="Ej: Camino Castro 420, Paso Molino" required></label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar Garaje</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+
+            <h2>Historial de Estacionamiento de Flota</h2>
+            <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-estacionamientos" class="input-filtro-tabla">
+                <table>
+                    <thead><tr><th>ID</th><th>Vehículo</th><th>Garaje</th><th>Fecha y Hora</th></tr></thead>
+                    <tbody id="tabla-estacionamientos"></tbody>
+                </table>
+            </div>
+
+            <form class="editor" id="form-estacionamiento" hidden style="margin-top: 14px;">
+                <h2>Registrar Estacionamiento de Vehículo</h2>
+                <div class="grilla-formulario">
+                    <label>Vehículo
+                        <select name="idVehi" id="select-estac-vehiculo" required></select>
+                    </label>
+                    <label>Garaje de Destino
+                        <select name="idGaraje" id="select-estac-garaje" required></select>
+                    </label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Confirmar Estacionamiento</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- SECCION: TALLERES Y MANTENIMIENTO (CU-27 / CU-28 / Narrativa 10) -->
+        <section class="seccion-panel" id="seccion-mantenimiento">
+            <div class="titulo-seccion">
+                <div><h1>Talleres y Mantenimiento Mecánico</h1><p>Control de centros de reparación e intervenciones de vehículos.</p></div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="boton" type="button" data-nuevo="taller" data-roles="administrador,municipal">Nuevo Taller</button>
+                    <button class="boton secundario" type="button" data-nuevo="reparacion" data-roles="administrador,municipal">Ingresar Vehículo a Taller</button>
+                </div>
+            </div>
+
+            <h2>Centros de Reparación</h2>
+            <div class="tabla-contenedor" style="margin-bottom: 24px;">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-talleres" class="input-filtro-tabla">
+                <table>
+                    <thead><tr><th>ID</th><th>Ubicación</th><th>Vehículos en Reparación</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-talleres"></tbody>
+                </table>
+            </div>
+
+            <form class="editor" id="form-taller" hidden style="margin-bottom: 24px;">
+                <h2 id="titulo-form-taller">Nuevo Taller Mecánico</h2>
+                <input name="id" type="hidden">
+                <div class="grilla-formulario">
+                    <label>Ubicación del Taller<input name="ubiMant" maxlength="150" placeholder="Ej: Taller Central - Av. Gral Flores 2900" required></label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Guardar Taller</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
+
+            <h2>Registro de Reparaciones y Mantenimiento</h2>
+            <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-reparaciones" class="input-filtro-tabla">
+                <table>
+                    <thead><tr><th>ID</th><th>Vehículo</th><th>Taller</th><th>Ingreso</th><th>Salida</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody id="tabla-reparaciones"></tbody>
+                </table>
+            </div>
+
+            <form class="editor" id="form-reparacion" hidden style="margin-top: 14px;">
+                <h2>Registrar Ingreso de Vehículo a Taller</h2>
+                <div class="grilla-formulario">
+                    <label>Vehículo a reparar
+                        <select name="idVehi" id="select-rep-vehiculo" required></select>
+                    </label>
+                    <label>Taller / Centro de Reparación
+                        <select name="idMant" id="select-rep-taller" required></select>
+                    </label>
+                    <label>Motivo de la reparación
+                        <input name="motivo" maxlength="150" placeholder="Ej: Falla en sistema hidráulico de compactación" required>
+                    </label>
+                </div>
+                <div class="acciones-editor">
+                    <button class="boton" type="submit">Ingresar a Taller</button>
+                    <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                </div>
+            </form>
         </section>
 
         <!-- SECCION: MAQUINARIA (ROL OPERARIO / ADMIN) -->
@@ -293,6 +490,7 @@
                 <button class="boton" type="button" data-nuevo="maquinaria" data-roles="administrador,operario,municipal">Nueva maquinaria</button>
             </div>
             <div class="tabla-contenedor">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-maquinaria" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID</th><th>Marca y Modelo</th><th>Nº Serie</th><th>Propósito / Uso</th><th>Capacidad</th><th>Centro</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-maquinaria"></tbody>
@@ -331,7 +529,8 @@
                         <button class="boton" type="button" data-nuevo="centro" data-roles="administrador,municipal">Nuevo centro</button>
                     </div>
                     <div class="tabla-contenedor">
-                        <table>
+                        <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-centros" class="input-filtro-tabla">
+                <table>
                             <thead><tr><th>ID</th><th>Ubicación</th><th>Tipo Residuo</th><th>Capacidad (kg)</th><th>Acciones</th></tr></thead>
                             <tbody id="tabla-centros"></tbody>
                         </table>
@@ -364,13 +563,15 @@
                         <button class="boton" type="button" data-nuevo="vertedero" data-roles="administrador,municipal">Nuevo vertedero</button>
                     </div>
                     <div class="tabla-contenedor">
-                        <table>
-                            <thead><tr><th>ID</th><th>Ubicación</th></tr></thead>
+                        <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-vertederos" class="input-filtro-tabla">
+                <table>
+                            <thead><tr><th>ID</th><th>Ubicación</th><th>Acciones</th></tr></thead>
                             <tbody id="tabla-vertederos"></tbody>
                         </table>
                     </div>
                     <form class="editor" id="form-vertedero" hidden style="margin-top: 14px;">
-                        <h3>Nuevo Vertedero</h3>
+                        <h3 id="titulo-form-vertedero">Nuevo Vertedero</h3>
+                        <input name="id" type="hidden">
                         <label>Ubicación<input name="ubicacion" maxlength="150" placeholder="Ej: Camino Felipe Cardoso km 4.5" required></label>
                         <div class="acciones-editor">
                             <button class="boton" type="submit">Guardar Vertedero</button>
@@ -379,21 +580,56 @@
                     </form>
                 </div>
             </div>
+
+            <!-- CU-23: Registro de Vertimiento (enviares) -->
+            <div style="margin-top: 28px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <h2>Envíos de Residuos a Vertedero</h2>
+                        <p style="font-size: 0.88rem; color: var(--gris);">Transporte de residuos tratados desde centros de acopio hacia disposición final (tabla enviares).</p>
+                    </div>
+                    <button class="boton" type="button" data-nuevo="envio-vertedero" data-roles="administrador,operario,municipal">Registrar Envío a Vertedero</button>
+                </div>
+                <div class="tabla-contenedor">
+                    <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-envios-vertedero" class="input-filtro-tabla">
+                <table>
+                        <thead><tr><th>ID Envío</th><th>Centro Origen</th><th>Tipo Residuo</th><th>Vertedero Destino</th><th>Fecha Vertido</th></tr></thead>
+                        <tbody id="tabla-envios-vertedero"></tbody>
+                    </table>
+                </div>
+
+                <form class="editor" id="form-envio-vertedero" hidden style="margin-top: 14px;">
+                    <h3>Registrar Envío de Residuos a Vertedero</h3>
+                    <div class="grilla-formulario">
+                        <label>Centro de Acopio Origen
+                            <select name="idCentro" id="select-envio-centro" required></select>
+                        </label>
+                        <label>Vertedero Destino
+                            <select name="idVertedero" id="select-envio-vertedero" required></select>
+                        </label>
+                    </div>
+                    <div class="acciones-editor">
+                        <button class="boton" type="submit">Confirmar Envío</button>
+                        <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
+                    </div>
+                </form>
+            </div>
         </section>
 
         <!-- SECCION: USUARIOS (SOLO ADMINISTRADOR) -->
         <section class="seccion-panel" id="seccion-usuarios">
             <div class="titulo-seccion">
-                <div><h1>Usuarios</h1><p>Alta, modificación y baja de usuarios.</p></div>
+                <div><h1>Usuarios del Sistema</h1><p>Alta, modificación y baja de personal y ciudadanos.</p></div>
                 <button class="boton" type="button" data-nuevo="usuario">Nuevo usuario</button>
             </div>
-            <div class="tabla-contenedor">
+            <div class="tabla-contenedor" style="margin-bottom: 28px;">
+                <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-usuarios" class="input-filtro-tabla">
                 <table>
                     <thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
                     <tbody id="tabla-usuarios"></tbody>
                 </table>
             </div>
-            <form class="editor" id="form-usuario" hidden>
+            <form class="editor" id="form-usuario" hidden style="margin-bottom: 28px;">
                 <h2 id="titulo-form-usuario">Nuevo usuario</h2>
                 <input name="id" type="hidden">
                 <div class="grilla-formulario">
@@ -424,7 +660,53 @@
                     <button class="boton secundario" type="button" data-cancelar>Cancelar</button>
                 </div>
             </form>
+
+            <!-- CU-08: Gestión de Bloqueo de Cédulas -->
+            <div style="background: white; border: 1px solid var(--borde); border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+                <h2 style="margin-bottom: 6px;">Gestión de Bloqueo de Cédulas</h2>
+                <p style="font-size: 0.88rem; color: var(--gris); margin-bottom: 14px;">Las cédulas bloqueadas no registrarán nuevas incidencias (se omitirán de forma silenciosa para el usuario).</p>
+                <div style="display: flex; gap: 10px; max-width: 450px; margin-bottom: 14px;">
+                    <input id="input-bloquear-cedula" type="text" placeholder="Cédula a bloquear (7-9 dígitos)" style="flex: 1;">
+                    <button class="boton" type="button" id="btn-bloquear-cedula">Bloquear Cédula</button>
+                </div>
+                <div id="lista-cedulas-bloqueadas" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <!-- Tags de cédulas bloqueadas -->
+                </div>
+            </div>
+
+            <!-- CU-30: Registro de Login y Auditoría de Accesos -->
+            <div style="background: white; border: 1px solid var(--borde); border-radius: 8px; padding: 18px;">
+                <h2 style="margin-bottom: 6px;">Registro de Login y Accesos</h2>
+                <p style="font-size: 0.88rem; color: var(--gris); margin-bottom: 14px;">Historial cronológico de accesos al sistema con fecha, hora, usuario e IP.</p>
+                <div class="tabla-contenedor" style="max-height: 240px; overflow-y: auto;">
+                    <input type="search" placeholder="🔍 Buscar en esta tabla..." data-filtro-tabla="tabla-logs-login" class="input-filtro-tabla">
+                <table>
+                        <thead><tr><th>Fecha y Hora</th><th>Usuario / Correo</th><th>Rol</th><th>IP</th><th>Resultado</th></tr></thead>
+                        <tbody id="tabla-logs-login"></tbody>
+                    </table>
+                </div>
+            </div>
         </section>
+
+        <!-- CU-31: Modal de Mi Perfil / Modificación de Credenciales -->
+        <dialog id="modal-mi-perfil" style="border: none; border-radius: 8px; padding: 24px; max-width: 440px; width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.25);">
+            <h2 style="margin-bottom: 12px;">Mi Perfil y Credenciales</h2>
+            <form id="form-mi-perfil">
+                <label>Nombre
+                    <input id="perfil-nombre" name="nombre" required>
+                </label>
+                <label style="margin-top: 8px;">Teléfono
+                    <input id="perfil-telefono" name="telefono">
+                </label>
+                <label style="margin-top: 8px;">Nueva Contraseña (opcional)
+                    <input id="perfil-password" name="password" type="password" minlength="6" placeholder="Dejar en blanco para no cambiar">
+                </label>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px;">
+                    <button class="boton" type="submit">Guardar Cambios</button>
+                    <button class="boton secundario" type="button" id="btn-cerrar-perfil">Cerrar</button>
+                </div>
+            </form>
+        </dialog>
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

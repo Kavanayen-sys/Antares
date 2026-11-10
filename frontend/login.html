@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ingresar | SiGeRU</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body class="fondo-formulario">
@@ -24,6 +26,57 @@
             <p class="mensaje" id="mensaje-login" aria-live="polite"></p>
         </form>
 
+        <!-- Paso 2: Verificación 2FA (TOTP) -->
+        <form id="form-2fa" style="display: none; margin-top: 14px;">
+            <div style="background: #e8f4fd; border: 1px solid #b8daff; padding: 14px; border-radius: 8px; font-size: 0.88rem; color: #004085; margin-bottom: 14px; text-align: center;">
+                <b style="font-size: 1rem; display: block; margin-bottom: 4px;">Verificación de Dos Pasos (2FA)</b>
+                <p style="margin: 4px 0 10px 0; color: #333;">Escaneá este código QR con <b>Google Authenticator</b> o <b>Authy</b>:</p>
+                
+                <div style="display: flex; justify-content: center; align-items: center; margin: 10px 0;">
+                    <img id="img-qr-2fa" src="" alt="Código QR 2FA" style="width: 170px; height: 170px; border-radius: 8px; border: 2px solid #b8daff; background: white; padding: 6px; box-shadow: 0 3px 8px rgba(0,0,0,0.08); display: block;">
+                </div>
+
+                <div style="margin-top: 8px;">
+                    <span style="font-size: 0.8rem; color: #555; display: block;">Clave secreta manual:</span>
+                    <code id="info-secret-2fa" style="font-family: monospace; font-size: 0.95rem; font-weight: bold; color: #111; background: #fff; padding: 3px 8px; border-radius: 4px; border: 1px solid #cce5ff; user-select: all; display: inline-block; letter-spacing: 1px;"></code>
+                </div>
+            </div>
+
+            <label for="codigo-2fa">Código de 6 dígitos</label>
+            <input id="codigo-2fa" name="codigo" type="text" maxlength="6" inputmode="numeric" required placeholder="Ej: 123456" style="text-align: center; font-size: 1.25rem; letter-spacing: 4px;">
+            <button class="boton ancho" type="submit" style="margin-top: 12px;">Confirmar e Ingresar</button>
+            <p class="mensaje" id="mensaje-2fa" aria-live="polite"></p>
+        </form>
+
+        <p style="text-align: right; margin-top: 10px; font-size: 0.9rem;">
+            <a href="#" id="link-abrir-recuperacion" style="color: var(--azul); text-decoration: none;">¿Olvidaste tu contraseña?</a>
+        </p>
+
+        <!-- CU-34: Modal / Sección de Recuperación de Contraseña -->
+        <div id="seccion-recuperar" style="display: none; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--borde);">
+            <h2 style="font-size: 1.15rem; margin-bottom: 8px;">Recuperar contraseña</h2>
+            <p style="font-size: 0.85rem; color: var(--gris); margin-bottom: 12px;">Ingresá tu correo electrónico para recibir un código de restablecimiento.</p>
+            
+            <form id="form-solicitar-codigo">
+                <label for="recup-email">Correo registrado</label>
+                <input id="recup-email" type="email" required placeholder="tu-correo@sigeru.local">
+                <button class="boton ancho" type="submit" style="margin-top: 10px;">Enviar código de recuperación</button>
+            </form>
+
+            <form id="form-verificar-codigo" style="display: none; margin-top: 14px;">
+                <label for="recup-codigo">Código de 6 dígitos</label>
+                <input id="recup-codigo" type="text" maxlength="6" required placeholder="Ej: 123456" inputmode="numeric">
+                <label for="recup-nueva-pass">Nueva contraseña</label>
+                <input id="recup-nueva-pass" type="password" minlength="6" required>
+                <label for="recup-confirm-pass">Confirmar nueva contraseña</label>
+                <input id="recup-confirm-pass" type="password" minlength="6" required>
+                <button class="boton ancho" type="submit" style="margin-top: 12px;">Restablecer contraseña</button>
+            </form>
+            
+            <p class="mensaje" id="mensaje-recuperar" aria-live="polite" style="margin-top: 10px;"></p>
+            <p style="text-align: center; margin-top: 10px;"><a href="#" id="link-volver-login" style="font-size: 0.85rem; color: var(--gris);">Volver a iniciar sesión</a></p>
+        </div>
+
         <div class="datos-prueba">
             <b>Usuario de prueba</b>
             <span>admin@sigeru.local / admin123</span>
@@ -31,7 +84,7 @@
         </div>
         <p class="enlace-formulario">¿No tenés cuenta? <a href="registro.html">Registrate</a></p>
     </main>
-    <script src="js/api.js"></script>
-    <script src="js/login.js"></script>
+    <script src="js/api.js?v=2"></script>
+    <script src="js/login.js?v=2"></script>
 </body>
 </html>
