@@ -117,6 +117,35 @@ class UsuarioController
         );
     }
 
+    public function actualizarPerfil(int $id, array $datos): array
+    {
+        $usuario = $this->modelo->obtenerPorId($id);
+        if (!$usuario) {
+            throw new OutOfBoundsException('El usuario no existe.');
+        }
+
+        $nombre = !empty($datos['nombre']) ? $this->texto($datos, 'nombre', 50) : $usuario['priNom'];
+        $telefono = isset($datos['telefono']) ? $this->texto($datos, 'telefono', 20) : ($usuario['telUsu'] ?? '');
+        $email = $usuario['email'];
+        $rol = $usuario['rol'];
+        $estado = $usuario['estUsu'];
+        $password = trim((string) ($datos['password'] ?? ''));
+
+        if ($password !== '' && strlen($password) < 6) {
+            throw new InvalidArgumentException('La nueva contraseña debe tener al menos 6 caracteres.');
+        }
+
+        return $this->modelo->actualizar(
+            $id,
+            $nombre,
+            $telefono,
+            $email,
+            $rol,
+            $estado,
+            $password === '' ? null : $password
+        );
+    }
+
     public function eliminar(int $id): bool
     {
         if ($this->modelo->usuarioTieneSesionActiva($id)) {

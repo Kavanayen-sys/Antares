@@ -153,6 +153,7 @@ class LogisticaController
     {
         $idChofer = filter_var($datos['idChofer'] ?? null, FILTER_VALIDATE_INT);
         $idPeon = filter_var($datos['idPeon'] ?? null, FILTER_VALIDATE_INT);
+        $idVehi = filter_var($datos['idVehi'] ?? null, FILTER_VALIDATE_INT);
 
         if (!$idChofer || $idChofer <= 0) {
             throw new InvalidArgumentException('Debe seleccionar un chofer.');
@@ -164,7 +165,7 @@ class LogisticaController
             throw new InvalidArgumentException('El chofer y el peón deben ser usuarios distintos.');
         }
 
-        return $this->modelo->crearCuadrilla((int) $idChofer, (int) $idPeon);
+        return $this->modelo->crearCuadrilla((int) $idChofer, (int) $idPeon, $idVehi ? (int) $idVehi : null);
     }
 
     public function eliminarCuadrilla(int $id): bool
@@ -221,6 +222,112 @@ class LogisticaController
             throw new InvalidArgumentException('Usuario no válido.');
         }
         return $this->modelo->obtenerMiRuta($idUsuario);
+    }
+
+    public function usarVehiculo(int $idUsuario, array $datos): array
+    {
+        $idVehi = filter_var($datos['idVehi'] ?? null, FILTER_VALIDATE_INT);
+        if (!$idVehi || $idVehi <= 0) {
+            throw new InvalidArgumentException('Debe seleccionar un vehículo válido.');
+        }
+        return $this->modelo->usarVehiculoPorCuadrilla($idUsuario, (int) $idVehi);
+    }
+
+    public function listarGarajes(): array
+    {
+        return $this->modelo->listarGarajes();
+    }
+
+    public function guardarGaraje(array $datos, int $id = 0): array
+    {
+        $ubi = $this->texto($datos, 'ubiGaraje', 150);
+        if ($id > 0) {
+            $g = $this->modelo->actualizarGaraje($id, $ubi);
+            if (!$g) {
+                throw new OutOfBoundsException('El garaje no existe.');
+            }
+            return $g;
+        }
+        return $this->modelo->crearGaraje($ubi);
+    }
+
+    public function eliminarGaraje(int $id): bool
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException('ID de garaje inválido.');
+        }
+        return $this->modelo->eliminarGaraje($id);
+    }
+
+    public function listarEstacionamientos(): array
+    {
+        return $this->modelo->listarEstacionamientos();
+    }
+
+    public function estacionarVehiculo(array $datos): array
+    {
+        $idVehi = filter_var($datos['idVehi'] ?? null, FILTER_VALIDATE_INT);
+        $idGaraje = filter_var($datos['idGaraje'] ?? null, FILTER_VALIDATE_INT);
+        if (!$idVehi || $idVehi <= 0) {
+            throw new InvalidArgumentException('Debe indicar un vehículo.');
+        }
+        if (!$idGaraje || $idGaraje <= 0) {
+            throw new InvalidArgumentException('Debe indicar un garaje.');
+        }
+        return $this->modelo->estacionarVehiculo((int) $idVehi, (int) $idGaraje);
+    }
+
+    public function listarTalleres(): array
+    {
+        return $this->modelo->listarTalleres();
+    }
+
+    public function guardarTaller(array $datos, int $id = 0): array
+    {
+        $ubi = $this->texto($datos, 'ubiMant', 150);
+        if ($id > 0) {
+            $t = $this->modelo->actualizarTaller($id, $ubi);
+            if (!$t) {
+                throw new OutOfBoundsException('El taller no existe.');
+            }
+            return $t;
+        }
+        return $this->modelo->crearTaller($ubi);
+    }
+
+    public function eliminarTaller(int $id): bool
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException('ID de taller inválido.');
+        }
+        return $this->modelo->eliminarTaller($id);
+    }
+
+    public function listarReparaciones(): array
+    {
+        return $this->modelo->listarReparaciones();
+    }
+
+    public function registrarMantenimiento(array $datos): array
+    {
+        $idVehi = filter_var($datos['idVehi'] ?? null, FILTER_VALIDATE_INT);
+        $idMant = filter_var($datos['idMant'] ?? null, FILTER_VALIDATE_INT);
+        $motivo = !empty($datos['motivo']) ? trim((string) $datos['motivo']) : 'Mantenimiento preventivo / mecánico';
+        if (!$idVehi || $idVehi <= 0) {
+            throw new InvalidArgumentException('Debe indicar un vehículo.');
+        }
+        if (!$idMant || $idMant <= 0) {
+            throw new InvalidArgumentException('Debe indicar un taller mecánico.');
+        }
+        return $this->modelo->registrarMantenimiento((int) $idVehi, (int) $idMant, $motivo);
+    }
+
+    public function finalizarMantenimiento(int $idReparacion): array
+    {
+        if ($idReparacion <= 0) {
+            throw new InvalidArgumentException('ID de reparación inválido.');
+        }
+        return $this->modelo->finalizarMantenimiento($idReparacion);
     }
 
     private function texto(array $datos, string $campo, int $maximo): string

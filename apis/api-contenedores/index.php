@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/ContenedorController.php';
 
 iniciarSesionSegura();
@@ -22,10 +25,16 @@ try {
     if ($metodo === 'GET' && $ruta === '/contenedores-publicos') {
         responder(['data' => $controlador->listarContenedores()]);
     }
+    if ($metodo === 'GET' && $ruta === '/contenedores-buscar') {
+        $calle = (string) ($_GET['calle'] ?? '');
+        $esquina = (string) ($_GET['esquina'] ?? '');
+        responder(['data' => $controlador->buscarContenedores($calle, $esquina)]);
+    }
     if ($metodo === 'POST' && $ruta === '/incidencias') {
         verificarCsrf();
+        $resp = $controlador->reportarIncidencia($datos);
         responder(
-            ['data' => $controlador->reportarIncidencia($datos), 'message' => 'Incidencia registrada.'],
+            ['data' => $resp, 'message' => 'Incidencia registrada.'],
             201
         );
     }
@@ -63,12 +72,25 @@ try {
         exigirRoles($rolesTodosTrabajadores);
         responder(['data' => $controlador->listarIncidencias()]);
     }
-    if ($metodo === 'PUT' && preg_match('#^/incidencias/(\d+)$#', $ruta, $coincide)) {
+    if ($metodo === 'GET' && preg_match('#^/incidencias/(\d+)/historial$#', $ruta, $coincide)) {
         exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->obtenerHistorialResoluciones((int) $coincide[1])]);
+    }
+    if ($metodo === 'PUT' && preg_match('#^/incidencias/(\d+)$#', $ruta, $coincide)) {
+        $usuarioActual = exigirRoles($rolesTodosTrabajadores);
+        verificarCsrf();
+        $idUsu = (int) ($usuarioActual['idUsu'] ?? 0);
+        responder([
+            'data' => $controlador->actualizarEstadoIncidencia((int) $coincide[1], $datos, $idUsu),
+            'message' => 'Estado de la incidencia actualizado.',
+        ]);
+    }
+    if ($metodo === 'POST' && preg_match('#^/incidencias/(\d+)/asignar$#', $ruta, $coincide)) {
+        exigirRoles($rolesGestion);
         verificarCsrf();
         responder([
-            'data' => $controlador->actualizarEstadoIncidencia((int) $coincide[1], $datos),
-            'message' => 'Estado de la incidencia actualizado.',
+            'data' => ['asignado' => $controlador->asignarIncidencia((int) $coincide[1], $datos)],
+            'message' => 'Incidencia asignada correctamente al equipo / vehículo.',
         ]);
     }
     if ($metodo === 'DELETE' && preg_match('#^/incidencias/(\d+)$#', $ruta, $coincide)) {
@@ -78,6 +100,23 @@ try {
             'data' => ['eliminado' => $controlador->eliminarIncidencia((int) $coincide[1])],
             'message' => 'Incidencia eliminada.',
         ]);
+    }
+
+    // CU8 - Bloqueo de Cédulas
+    if ($metodo === 'GET' && $ruta === '/cedulas-bloqueadas') {
+        exigirRoles(['administrador']);
+        responder(['data' => $controlador->listarCedulasBloqueadas()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/cedulas-bloqueadas') {
+        exigirRoles(['administrador']);
+        verificarCsrf();
+        $cedula = trim((string) ($datos['cedula'] ?? ''));
+        responder(['data' => ['bloqueada' => $controlador->bloquearCedula($cedula)], 'message' => 'Cédula bloqueada con éxito.']);
+    }
+    if ($metodo === 'DELETE' && preg_match('#^/cedulas-bloqueadas/([0-9]+)$#', $ruta, $coincide)) {
+        exigirRoles(['administrador']);
+        verificarCsrf();
+        responder(['data' => ['desbloqueada' => $controlador->desbloquearCedula($coincide[1])], 'message' => 'Cédula desbloqueada con éxito.']);
     }
 
     responder(['error' => 'Ruta no encontrada.'], 404);

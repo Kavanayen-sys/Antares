@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/UsuarioController.php';
 require_once __DIR__ . '/TotpHelper.php';
 
@@ -105,7 +108,90 @@ try {
         // Marcar sesión como activa en la base de datos
         $controlador->marcarSesionActiva((int) $usuario['idUsu'], true);
 
+        // CU-30: Registrar acceso con fecha y hora
+        registrarLogAcceso((int) $usuario['idUsu'], $usuario['email'], $usuario['rol'], true);
+
         responder(['data' => $usuario, 'message' => 'Inicio de sesión correcto.']);
+    }
+    if ($metodo === 'POST' && $ruta === '/solicitar-recuperacion') {
+        verificarCsrf();
+        $email = strtolower(trim((string) ($datos['email'] ?? '')));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            responder(['error' => 'Ingresá un correo electrónico válido.'], 422);
+        }
+        $usuario = $controlador->obtenerPorEmail($email);
+        if (!$usuario) {
+            responder(['error' => 'No se encontró ninguna cuenta asociada a este correo.'], 404);
+        }
+
+        // Generar código de 6 dígitos (Narrativa 8)
+        $codigo = (string) random_int(100000, 999999);
+        $archivoCodigos = __DIR__ . '/recovery_codes.json';
+        $codigos = file_exists($archivoCodigos) ? json_decode((string) file_get_contents($archivoCodigos), true) : [];
+        if (!is_array($codigos)) $codigos = [];
+
+        $codigos[$email] = [
+            'codigo' => $codigo,
+            'expira' => time() + 900 // 15 minutos
+        ];
+        @file_put_contents($archivoCodigos, json_encode($codigos, JSON_PRETTY_PRINT));
+
+        // En un servidor real se envía vía SMTP. Aquí enviamos mensaje y el código simulado
+        responder([
+            'message' => '¡Correo enviado con éxito! Revisa tu casilla o utilizá el código generado.',
+            'codigoSimulado' => $codigo,
+            'email' => $email
+        ]);
+    }
+    if ($metodo === 'POST' && $ruta === '/confirmar-recuperacion') {
+        verificarCsrf();
+        $email = strtolower(trim((string) ($datos['email'] ?? '')));
+        $codigo = trim((string) ($datos['codigo'] ?? ''));
+        $nuevaPassword = (string) ($datos['password'] ?? '');
+        $confirmPassword = (string) ($datos['confirmPassword'] ?? '');
+
+        if ($nuevaPassword !== $confirmPassword) {
+            responder(['error' => 'Las contraseñas no coinciden.'], 422);
+        }
+        if (strlen($nuevaPassword) < 6) {
+            responder(['error' => 'La contraseña debe tener al menos 6 caracteres.'], 422);
+        }
+
+        $archivoCodigos = __DIR__ . '/recovery_codes.json';
+        $codigos = file_exists($archivoCodigos) ? json_decode((string) file_get_contents($archivoCodigos), true) : [];
+        $reg = $codigos[$email] ?? null;
+
+        if (!$reg || time() > $reg['expira']) {
+            responder(['error' => 'El código de recuperación expiró o no fue solicitado.'], 401);
+        }
+        if ($reg['codigo'] !== $codigo) {
+            responder(['error' => 'El código de verificación ingresado es incorrecto.'], 401);
+        }
+
+        $usuario = $controlador->obtenerPorEmail($email);
+        if (!$usuario) {
+            responder(['error' => 'Usuario no encontrado.'], 404);
+        }
+
+        $controlador->actualizarPassword((int) $usuario['idUsu'], $nuevaPassword);
+        unset($codigos[$email]);
+        @file_put_contents($archivoCodigos, json_encode($codigos, JSON_PRETTY_PRINT));
+
+        responder(['message' => '¡Contraseña restablecida exitosamente! Ya podés iniciar sesión.']);
+    }
+    if ($metodo === 'PUT' && $ruta === '/mi-perfil') {
+        exigirSesion();
+        verificarCsrf();
+        $idActual = (int) $_SESSION['usuario']['idUsu'];
+        $act = $controlador->actualizarPerfil($idActual, $datos);
+        $_SESSION['usuario'] = array_merge($_SESSION['usuario'], $act);
+        responder(['data' => $act, 'message' => '¡Tus datos fueron actualizados correctamente!']);
+    }
+    if ($metodo === 'GET' && $ruta === '/logs-login') {
+        exigirAdministrador();
+        $archivo = __DIR__ . '/log_accesos.json';
+        $logs = file_exists($archivo) ? json_decode((string) file_get_contents($archivo), true) : [];
+        responder(['data' => is_array($logs) ? array_reverse($logs) : []]);
     }
     if ($metodo === 'POST' && $ruta === '/reenviar-2fa') {
         verificarCsrf();
@@ -286,4 +372,30 @@ function enmascararEmail(string $email): string
     $nombre = $partes[0];
     $visible = substr($nombre, 0, min(2, strlen($nombre)));
     return $visible . '***@' . $partes[1];
+}
+
+function registrarLogAcceso(int $idUsu, string $email, string $rol, bool $exito): void
+{
+    try {
+        $archivo = __DIR__ . '/log_accesos.json';
+        $logs = file_exists($archivo) ? json_decode((string) file_get_contents($archivo), true) : [];
+        if (!is_array($logs)) {
+            $logs = [];
+        }
+        $logs[] = [
+            'idUsu' => $idUsu,
+            'email' => $email,
+            'rol' => $rol,
+            'exito' => $exito,
+            'fechaHora' => date('Y-m-d H:i:s'),
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+            'userAgent' => substr($_SERVER['HTTP_USER_AGENT'] ?? 'Desconocido', 0, 100)
+        ];
+        if (count($logs) > 500) {
+            array_shift($logs);
+        }
+        @file_put_contents($archivo, json_encode($logs, JSON_PRETTY_PRINT));
+    } catch (\Throwable $e) {
+        // Silencioso
+    }
 }

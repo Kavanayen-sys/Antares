@@ -45,7 +45,8 @@ INSERT INTO centro (idCentro, ubiCentro, tipoCentro, capCentro) VALUES
 -- 2. VERTEDERO MUNICIPAL
 -- -----------------------------------------------------------------------------
 INSERT INTO vertedero (idVertedero, ubicacionVertedero) VALUES
-(1, 'Felipe Cardoso s/n - Disposición Final Usina 6, Bañados de Carrasco');
+(1, 'Felipe Cardoso s/n - Disposición Final Usina 6, Bañados de Carrasco'),
+(2, 'Ruta 1 y Camino Tomkinson, Paso de la Arena');
 
 -- -----------------------------------------------------------------------------
 -- 3. MAQUINARIA EN PLANTAS DE TRATAMIENTO
@@ -81,19 +82,20 @@ INSERT INTO cuadrilla (idCuadrilla, idChofer, idPeon) VALUES
 -- 6. VEHÍCULOS DE LA FLOTA MUNICIPAL
 -- -----------------------------------------------------------------------------
 INSERT INTO vehiculo (idVehi, tipoVehi, matriculaVehi, marcaVehi, modeloVehi, capVehi, estVehi) VALUES
-(1, 'comunitario', 'STX-1042', 'Mercedes-Benz', 'Atego 1729 Recolector', 15000.00, 'en uso'),
-(2, 'comunitario', 'STX-1043', 'Scania', 'P280 Compactador', 18000.00, 'disponible'),
-(3, 'intradomiciliario', 'SMI-2340', 'Iveco', 'Daily 70C17 Caja Abierta', 7000.00, 'disponible'),
-(4, 'limpieza', 'SOM-5511', 'Volkswagen', 'Delivery 9.170 Lavador', 6000.00, 'disponible'),
-(5, 'centroAcopio', 'STX-3301', 'Scania', 'R450 Volqueta Batea', 28000.00, 'roto');
+(1, 'comunitario', 'STP1234', 'Volkswagen', 'Constellation 17.280', 12000.00, 'en uso'),
+(2, 'limpieza', 'STP5678', 'Mercedes-Benz', 'Atego 1729 Recolector', 15000.00, 'disponible'),
+(3, 'intradomiciliario', 'STP9012', 'Iveco', 'Daily 70C17 Caja Abierta', 7500.00, 'roto'),
+(4, 'comunitario', 'STX-1043', 'Scania', 'P280 Compactador', 18000.00, 'en uso'),
+(5, 'centroAcopio', 'STX-3301', 'Scania', 'R450 Volqueta Batea', 28000.00, 'roto'),
+(6, 'limpieza', 'SOM-5511', 'Volkswagen', 'Delivery 9.170 Lavador', 6000.00, 'disponible');
 
 -- -----------------------------------------------------------------------------
 -- 7. RUTAS DE RECOLECCIÓN
 -- -----------------------------------------------------------------------------
 INSERT INTO ruta (idRuta, frecuencia, idCentro) VALUES
-(1, 'Diaria - Municipio B (Centro)', 1),
-(2, 'Nocturna - Municipio CH (Pocitos)', 2),
-(3, 'Lunes a Viernes - Municipio C', 1);
+(1, 'Diaria - Municipio B (Centro y Cordón)', 1),
+(2, 'Nocturna - Municipio CH (Pocitos y P. Carretas)', 2),
+(3, 'Lunes a Viernes - Municipio C (Prado y Goes)', 1);
 
 -- -----------------------------------------------------------------------------
 -- 8. CONTENEDORES Y COORDENADAS (Montevideo, Uruguay)
@@ -146,25 +148,26 @@ INSERT INTO compone (idComposicion, idRuta, idCon, orden) VALUES
 -- -----------------------------------------------------------------------------
 INSERT INTO incidencia (idInci, fchaInci, idCon, tipoInci, descInci, cedHashInci, prioridad, estado) VALUES
 (1, NOW() - INTERVAL 3 HOUR, 1, 'desbordado', 'Capacidad colmada de bolsas y cajas en la acera comercial.', SHA2('41234567', 256), 'alta', 'en curso'),
-(2, NOW() - INTERVAL 6 HOUR, 5, 'roto', 'El pedal de apertura se soltó y la tapa no se puede abrir.', SHA2('39876543', 256), 'media', 'en curso'),
+(2, NOW() - INTERVAL 6 HOUR, 5, 'roto', 'El pedal de apertura se soltó y la tapa no se puede abrir.', SHA2('39876543', 256), 'alta', 'en curso'),
 (3, NOW() - INTERVAL 1 DAY, 4, 'basura alrededor', 'Restos de poda acumulados en el lateral del contenedor.', SHA2('48765432', 256), 'baja', 'resuelto'),
 (4, NOW() - INTERVAL 2 DAY, 9, 'incendiado', 'Se detectaron cenizas y estructura plástica dañada por fuego.', SHA2('51239874', 256), 'alta', 'resuelto'),
-(5, NOW() - INTERVAL 12 HOUR, 2, 'desbordado', 'Desborde de residuos luego de fin de semana.', SHA2('42551122', 256), 'alta', 'en curso');
+(5, NOW() - INTERVAL 12 HOUR, 2, 'desbordado', 'Desborde de residuos luego de fin de semana.', SHA2('42551122', 256), 'media', 'en curso'),
+(6, NOW() - INTERVAL 1 DAY, 7, 'roto', 'Fisura en base plástica con pérdida de líquido.', SHA2('43219876', 256), 'alta', 'en curso');
 
 -- -----------------------------------------------------------------------------
 -- 11. OPERACIONES (Asignación Cuadrilla a Vehículo)
 -- -----------------------------------------------------------------------------
 INSERT INTO opera (idOperacion, idVehi, idCuadrilla, fchOperacion) VALUES
 (1, 1, 1, CURDATE()),
-(2, 2, 2, CURDATE());
+(2, 4, 2, CURDATE());
 
 -- -----------------------------------------------------------------------------
--- 12. RECORRIDOS (Ejecución de Rutas y Llegadas a Centros de Acopio)
+-- 12. RECORRIDOS (Ejecución de Rutas y Asignaciones activas)
 -- -----------------------------------------------------------------------------
 INSERT INTO recorrido (idRecorrido, idVehi, idRuta, fechaRec) VALUES
 (1, 1, 1, CURDATE()),
-(2, 2, 2, CURDATE()),
-(3, 4, 3, CURDATE() - INTERVAL 1 DAY),
+(2, 4, 2, CURDATE()),
+(3, 2, 3, CURDATE() - INTERVAL 1 DAY),
 (4, 1, 1, CURDATE() - INTERVAL 1 DAY);
 
 -- -----------------------------------------------------------------------------
@@ -175,7 +178,7 @@ INSERT INTO resuelve (idResolucion, idInci, idUsu, fchIntento, descEstado, estIn
 (2, 4, 1, NOW() - INTERVAL 36 HOUR, 'Contenedor reemplazado por unidad de repuesto.', 'cerrado');
 
 INSERT INTO atiende (idAtencion, idInci, idVehi, fchAtencion) VALUES
-(1, 3, 4, NOW() - INTERVAL 18 HOUR),
+(1, 3, 6, NOW() - INTERVAL 18 HOUR),
 (2, 4, 1, NOW() - INTERVAL 36 HOUR);
 
 -- -----------------------------------------------------------------------------
@@ -183,4 +186,33 @@ INSERT INTO atiende (idAtencion, idInci, idVehi, fchAtencion) VALUES
 -- -----------------------------------------------------------------------------
 INSERT INTO enviares (idEnvio, idCentro, idVertedero, fchVertido) VALUES
 (1, 1, 1, CURDATE() - INTERVAL 1 DAY),
-(2, 2, 1, CURDATE() - INTERVAL 2 DAY);
+(2, 2, 1, CURDATE() - INTERVAL 2 DAY),
+(3, 3, 2, CURDATE());
+
+-- -----------------------------------------------------------------------------
+-- 15. GARAJES MUNICIPALES
+-- -----------------------------------------------------------------------------
+INSERT INTO garaje (idGaraje, ubiGaraje) VALUES
+(1, 'Base Operativa Central - Av. Luis Alberto de Herrera 3200'),
+(2, 'Depósito Logístico Oeste - Cno. Cibils 4500');
+
+-- -----------------------------------------------------------------------------
+-- 16. TALLERES MECÁNICOS (Mantenimiento)
+-- -----------------------------------------------------------------------------
+INSERT INTO mantenimiento (idMant, ubiMant) VALUES
+(1, 'Taller Mecánico Central Flota Pesada - Av. Millán 2510'),
+(2, 'Taller de Hidráulica y Compactadores - Cno. Carrasco 1200');
+
+-- -----------------------------------------------------------------------------
+-- 17. ESTACIONAMIENTO DE VEHÍCULOS
+-- -----------------------------------------------------------------------------
+INSERT INTO estaciona (idEstacion, idGaraje, idVehi, horaEstacionamiento) VALUES
+(1, 1, 2, NOW() - INTERVAL 8 HOUR),
+(2, 2, 6, NOW() - INTERVAL 4 HOUR);
+
+-- -----------------------------------------------------------------------------
+-- 18. REPARACIONES DE VEHÍCULOS (Taller / Mantenimiento)
+-- -----------------------------------------------------------------------------
+INSERT INTO repara (idReparacion, idMant, idVehi, horaIngreso, horaSalida, estadoReparacion) VALUES
+(1, 1, 5, NOW() - INTERVAL 2 DAY, NULL, 'en reparacion'),
+(2, 2, 1, NOW() - INTERVAL 7 DAY, NOW() - INTERVAL 6 DAY, 'reparado');

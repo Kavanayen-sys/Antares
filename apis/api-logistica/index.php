@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/LogisticaController.php';
 
 iniciarSesionSegura();
@@ -109,9 +112,88 @@ try {
     }
 
     if ($metodo === 'GET' && $ruta === '/mi-ruta') {
-        $usuario = exigirRoles(['cuadrilla']);
+        $usuario = exigirRoles(['cuadrilla', 'administrador', 'municipal']);
         $idUsuario = (int) ($usuario['idUsu'] ?? 0);
         responder(['data' => $controlador->obtenerMiRuta($idUsuario)]);
+    }
+
+    // CU-15 / Narrativa 7: Usar vehículo por cuadrilla
+    if ($metodo === 'POST' && $ruta === '/usar-vehiculo') {
+        $usuario = exigirRoles(['cuadrilla', 'administrador', 'municipal']);
+        verificarCsrf();
+        $idUsuario = (int) ($usuario['idUsu'] ?? 0);
+        responder(['data' => $controlador->usarVehiculo($idUsuario, $datos), 'message' => 'Vehículo asignado a tu cuadrilla.']);
+    }
+
+    // CU-25 / CU-26: Garajes y Estacionamientos
+    if ($metodo === 'GET' && $ruta === '/garajes') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarGarajes()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/garajes') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarGaraje($datos), 'message' => 'Garaje registrado.'], 201);
+    }
+    if (preg_match('#^/garajes/(\d+)$#', $ruta, $coincide)) {
+        $id = (int) $coincide[1];
+        if ($metodo === 'PUT') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarGaraje($datos, $id), 'message' => 'Garaje actualizado.']);
+        }
+        if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarGaraje($id)], 'message' => 'Garaje eliminado.']);
+        }
+    }
+    if ($metodo === 'GET' && $ruta === '/estacionamientos') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarEstacionamientos()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/estacionamientos') {
+        exigirRoles($rolesTodosTrabajadores);
+        verificarCsrf();
+        responder(['data' => $controlador->estacionarVehiculo($datos), 'message' => 'Vehículo estacionado.']);
+    }
+
+    // CU-27 / CU-28: Talleres y Mantenimiento de Vehículos (Narrativa 10)
+    if ($metodo === 'GET' && $ruta === '/talleres') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarTalleres()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/talleres') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->guardarTaller($datos), 'message' => 'Taller registrado.'], 201);
+    }
+    if (preg_match('#^/talleres/(\d+)$#', $ruta, $coincide)) {
+        $id = (int) $coincide[1];
+        if ($metodo === 'PUT') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarTaller($datos, $id), 'message' => 'Taller actualizado.']);
+        }
+        if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarTaller($id)], 'message' => 'Taller eliminado.']);
+        }
+    }
+    if ($metodo === 'GET' && $ruta === '/reparaciones') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarReparaciones()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/reparaciones') {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->registrarMantenimiento($datos), 'message' => 'Vehículo ingresado a reparación.'], 201);
+    }
+    if ($metodo === 'POST' && preg_match('#^/reparaciones/(\d+)/finalizar$#', $ruta, $coincide)) {
+        exigirRoles($rolesGestion);
+        verificarCsrf();
+        responder(['data' => $controlador->finalizarMantenimiento((int) $coincide[1]), 'message' => 'Mantenimiento finalizado.']);
     }
 
     responder(['error' => 'Ruta no encontrada.'], 404);

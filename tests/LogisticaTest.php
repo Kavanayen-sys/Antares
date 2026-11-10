@@ -57,10 +57,10 @@ class MockLogisticaModel extends LogisticaModel
         return $idVehi === 1; // Simula camión en ruta activa
     }
 
-    public function crearCuadrilla(int $idChofer, int $idPeon): array
+    public function crearCuadrilla(int $idChofer, int $idPeon, ?int $idVehi = null): array
     {
         $id = count($this->cuadrillas) + 1;
-        $c = ['idCuadrilla' => $id, 'idChofer' => $idChofer, 'idPeon' => $idPeon];
+        $c = ['idCuadrilla' => $id, 'idChofer' => $idChofer, 'idPeon' => $idPeon, 'idVehi' => $idVehi];
         $this->cuadrillas[$id] = $c;
         return $c;
     }
