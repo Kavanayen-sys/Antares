@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/CentroController.php';
 
 iniciarSesionSegura();
@@ -78,6 +81,30 @@ try {
         exigirRoles($rolesGestion);
         verificarCsrf();
         responder(['data' => $controlador->guardarVertedero($datos), 'message' => 'Vertedero registrado.'], 201);
+    }
+    if (preg_match('#^/vertederos/(\d+)$#', $ruta, $coincide)) {
+        $id = (int) $coincide[1];
+        if ($metodo === 'PUT') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => $controlador->guardarVertedero($datos, $id), 'message' => 'Vertedero actualizado.']);
+        }
+        if ($metodo === 'DELETE') {
+            exigirRoles($rolesGestion);
+            verificarCsrf();
+            responder(['data' => ['eliminado' => $controlador->eliminarVertedero($id)], 'message' => 'Vertedero eliminado.']);
+        }
+    }
+
+    // CU-23: Registro de Vertimiento (enviares)
+    if ($metodo === 'GET' && $ruta === '/envios-vertedero') {
+        exigirRoles($rolesTodosTrabajadores);
+        responder(['data' => $controlador->listarEnviosVertedero()]);
+    }
+    if ($metodo === 'POST' && $ruta === '/envios-vertedero') {
+        exigirRoles(['operario', 'administrador', 'municipal']);
+        verificarCsrf();
+        responder(['data' => $controlador->registrarEnvioVertedero($datos), 'message' => 'Envío a vertedero registrado.'], 201);
     }
 
     // Endpoints de llegada y confirmación de descarga de camiones en centros

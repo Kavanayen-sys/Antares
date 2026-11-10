@@ -134,13 +134,56 @@ class ContenedorController
         ]);
     }
 
-    public function actualizarEstadoIncidencia(int $id, array $datos): array
+    public function buscarContenedores(string $calle, string $esquina): array
+    {
+        return $this->modelo->buscarContenedoresPorCalleYEsquina($calle, $esquina);
+    }
+
+    public function actualizarEstadoIncidencia(int $id, array $datos, ?int $idUsu = null): array
     {
         if ($id <= 0) {
             throw new InvalidArgumentException('ID de incidencia inválido.');
         }
         $estado = $this->opcion($datos, 'estado', self::ESTADOS_INCIDENCIA);
-        return $this->modelo->actualizarEstadoIncidencia($id, $estado);
+        $descripcion = !empty($datos['descripcion']) ? trim((string) $datos['descripcion']) : null;
+        $idVehi = !empty($datos['idVehi']) ? (int) $datos['idVehi'] : null;
+
+        return $this->modelo->actualizarEstadoIncidencia($id, $estado, $descripcion, $idUsu, $idVehi);
+    }
+
+    public function obtenerHistorialResoluciones(int $idInci): array
+    {
+        return $this->modelo->obtenerHistorialResoluciones($idInci);
+    }
+
+    public function listarCedulasBloqueadas(): array
+    {
+        return $this->modelo->obtenerCedulasBloqueadas();
+    }
+
+    public function bloquearCedula(string $cedula): bool
+    {
+        if (!preg_match('/^[0-9]{7,9}$/', trim($cedula))) {
+            throw new InvalidArgumentException('La cédula a bloquear debe tener entre 7 y 9 dígitos.');
+        }
+        return $this->modelo->bloquearCedula(trim($cedula));
+    }
+
+    public function desbloquearCedula(string $cedula): bool
+    {
+        return $this->modelo->desbloquearCedula(trim($cedula));
+    }
+
+    public function asignarIncidencia(int $idInci, array $datos): bool
+    {
+        if ($idInci <= 0) {
+            throw new InvalidArgumentException('ID de incidencia inválido.');
+        }
+        $idVehi = filter_var($datos['idVehi'] ?? null, FILTER_VALIDATE_INT);
+        if (!$idVehi || $idVehi <= 0) {
+            throw new InvalidArgumentException('Debe seleccionar un vehículo válido.');
+        }
+        return $this->modelo->asignarIncidencia($idInci, (int) $idVehi);
     }
 
     public function eliminarIncidencia(int $id): bool

@@ -232,15 +232,69 @@ class LogisticaModel
         return $ruta;
     }
 
+    private function ordenarContenedoresEficientemente(array $contenedores): array
+    {
+        if (count($contenedores) <= 1) {
+            return $contenedores;
+        }
+        $ids = array_map('intval', $contenedores);
+        $idsStr = implode(',', $ids);
+        $sql = "SELECT c.idCon, cc.latitud, cc.longitud 
+                FROM contenedor c 
+                LEFT JOIN contenedorcomunitario cc ON cc.idCon = c.idCon 
+                WHERE c.idCon IN ($idsStr)";
+        $res = $this->conexion->query($sql);
+        $puntos = [];
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $puntos[(int) $row['idCon']] = [
+                    'lat' => $row['latitud'] !== null ? (float) $row['latitud'] : -34.9011,
+                    'lng' => $row['longitud'] !== null ? (float) $row['longitud'] : -56.1645
+                ];
+            }
+        }
+
+        // Algoritmo del vecino más cercano para secuencia óptima de paradas
+        $ordenados = [];
+        $pendientes = $ids;
+        $actual = array_shift($pendientes);
+        $ordenados[] = $actual;
+
+        while (!empty($pendientes)) {
+            $lat1 = $puntos[$actual]['lat'] ?? -34.9011;
+            $lng1 = $puntos[$actual]['lng'] ?? -56.1645;
+            $mejorIndice = 0;
+            $menorDist = PHP_FLOAT_MAX;
+
+            foreach ($pendientes as $idx => $cand) {
+                $lat2 = $puntos[$cand]['lat'] ?? -34.9011;
+                $lng2 = $puntos[$cand]['lng'] ?? -56.1645;
+                $dist = hypot($lat1 - $lat2, $lng1 - $lng2);
+                if ($dist < $menorDist) {
+                    $menorDist = $dist;
+                    $mejorIndice = $idx;
+                }
+            }
+
+            $actual = $pendientes[$mejorIndice];
+            $ordenados[] = $actual;
+            array_splice($pendientes, $mejorIndice, 1);
+        }
+
+        return $ordenados;
+    }
+
     private function guardarContenedoresRuta(int $idRuta, array $contenedores): void
     {
         $del = $this->conexion->prepare('DELETE FROM compone WHERE idRuta = ?');
         $del->bind_param('i', $idRuta);
         $del->execute();
 
+        $contenedoresOrdenados = $this->ordenarContenedoresEficientemente($contenedores);
+
         $ins = $this->conexion->prepare('INSERT INTO compone (idRuta, idCon, orden) VALUES (?, ?, ?)');
         $orden = 1;
-        foreach ($contenedores as $idCon) {
+        foreach ($contenedoresOrdenados as $idCon) {
             $idConInt = (int) $idCon;
             if ($idConInt > 0) {
                 $ins->bind_param('iii', $idRuta, $idConInt, $orden);
@@ -367,10 +421,13 @@ class LogisticaModel
     {
         $sql = 'SELECT c.idCuadrilla,
                        c.idChofer, u1.priNom AS nomChofer, u1.telUsu AS telChofer, u1.email AS emailChofer,
-                       c.idPeon, u2.priNom AS nomPeon, u2.telUsu AS telPeon, u2.email AS emailPeon
+                       c.idPeon, u2.priNom AS nomPeon, u2.telUsu AS telPeon, u2.email AS emailPeon,
+                       o.idVehi, v.matriculaVehi, v.marcaVehi, v.modeloVehi, v.tipoVehi
                 FROM cuadrilla c
                 INNER JOIN usuario u1 ON u1.idUsu = c.idChofer
                 INNER JOIN usuario u2 ON u2.idUsu = c.idPeon
+                LEFT JOIN opera o ON o.idCuadrilla = c.idCuadrilla
+                LEFT JOIN vehiculo v ON v.idVehi = o.idVehi
                 ORDER BY c.idCuadrilla ASC';
 
         return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
@@ -394,7 +451,7 @@ class LogisticaModel
         return $stmt->get_result()->num_rows > 0;
     }
 
-    public function crearCuadrilla(int $idChofer, int $idPeon): array
+    public function crearCuadrilla(int $idChofer, int $idPeon, ?int $idVehi = null): array
     {
         if ($idChofer === $idPeon) {
             throw new InvalidArgumentException('El chofer y el peón no pueden ser el mismo usuario.');
@@ -413,10 +470,23 @@ class LogisticaModel
         $stmt->execute();
 
         $id = (int) $this->conexion->insert_id;
+
+        // Si se seleccionó un vehículo al crear la cuadrilla, se asigna operativamente
+        if ($idVehi !== null && $idVehi > 0) {
+            $stmtOp = $this->conexion->prepare('INSERT INTO opera (idVehi, idCuadrilla, fchOperacion) VALUES (?, ?, CURDATE())');
+            $stmtOp->bind_param('ii', $idVehi, $id);
+            $stmtOp->execute();
+
+            $stmtV = $this->conexion->prepare("UPDATE vehiculo SET estVehi = 'en uso' WHERE idVehi = ?");
+            $stmtV->bind_param('i', $idVehi);
+            $stmtV->execute();
+        }
+
         return [
             'idCuadrilla' => $id,
             'idChofer' => $idChofer,
             'idPeon' => $idPeon,
+            'idVehi' => $idVehi
         ];
     }
 
@@ -668,6 +738,7 @@ class LogisticaModel
                      INNER JOIN compone comp ON comp.idCon = i.idCon AND comp.idRuta = ?
                      INNER JOIN contenedor c ON c.idCon = i.idCon
                      LEFT JOIN contenedorcomunitario cc ON cc.idCon = c.idCon
+                     WHERE i.tipoInci NOT IN ("roto", "incendiado")
                      ORDER BY comp.orden ASC, i.idInci ASC'
                 );
                 $stmtInci->bind_param('i', $idRuta);
@@ -682,6 +753,280 @@ class LogisticaModel
             'ruta' => $ruta,
             'contenedores' => $contenedores,
             'incidencias' => $incidencias,
+        ];
+    }
+
+    // =========================================================================
+    // CU-15 / Narrativa 7: Registrar Operación de Vehículo por Cuadrilla / Peón
+    // =========================================================================
+
+    public function usarVehiculoPorCuadrilla(int $idUsuario, int $idVehi): array
+    {
+        // 1. Verificar cuadrilla del usuario
+        $stmtCuad = $this->conexion->prepare('SELECT idCuadrilla FROM cuadrilla WHERE idChofer = ? OR idPeon = ? LIMIT 1');
+        $stmtCuad->bind_param('ii', $idUsuario, $idUsuario);
+        $stmtCuad->execute();
+        $cuad = $stmtCuad->get_result()->fetch_assoc();
+        if (!$cuad) {
+            throw new InvalidArgumentException('El usuario no pertenece a ninguna cuadrilla activa.');
+        }
+        $idCuadrilla = (int) $cuad['idCuadrilla'];
+
+        // 2. Verificar vehículo
+        $vehiculo = $this->obtenerVehi($idVehi);
+        if (!$vehiculo) {
+            throw new OutOfBoundsException('El vehículo no existe.');
+        }
+        if ($vehiculo['estVehi'] === 'roto') {
+            throw new InvalidArgumentException('El vehículo se encuentra roto o en mantenimiento.');
+        }
+
+        // 3. Regla 6b: Si la cuadrilla ya tiene otro vehículo en uso hoy, se libera el anterior
+        $stmtOld = $this->conexion->prepare('SELECT idOperacion, idVehi FROM opera WHERE idCuadrilla = ? AND fchOperacion = CURDATE()');
+        $stmtOld->bind_param('i', $idCuadrilla);
+        $stmtOld->execute();
+        $oldOps = $stmtOld->get_result()->fetch_all(MYSQLI_ASSOC);
+        foreach ($oldOps as $old) {
+            $idOldV = (int) $old['idVehi'];
+            $this->conexion->query("DELETE FROM opera WHERE idOperacion = {$old['idOperacion']}");
+            if ($idOldV !== $idVehi) {
+                $this->conexion->query("UPDATE vehiculo SET estVehi = 'disponible' WHERE idVehi = {$idOldV} AND estVehi = 'en uso'");
+            }
+        }
+
+        // 4. Persistir la asignación en opera
+        $stmtOpera = $this->conexion->prepare('INSERT INTO opera (idVehi, idCuadrilla, fchOperacion) VALUES (?, ?, CURDATE())');
+        $stmtOpera->bind_param('ii', $idVehi, $idCuadrilla);
+        $stmtOpera->execute();
+
+        // 5. Marcar vehículo como en uso
+        $this->conexion->query("UPDATE vehiculo SET estVehi = 'en uso' WHERE idVehi = {$idVehi}");
+
+        return [
+            'idCuadrilla' => $idCuadrilla,
+            'idVehi' => $idVehi,
+            'fchOperacion' => date('Y-m-d'),
+            'vehiculo' => $this->obtenerVehi($idVehi),
+            'mensaje' => 'Vehículo asignado a tu cuadrilla correctamente.'
+        ];
+    }
+
+    // =========================================================================
+    // CU-25 / CU-26: ABM de Garajes y Estacionamiento de Vehículos
+    // =========================================================================
+
+    public function listarGarajes(): array
+    {
+        $sql = 'SELECT g.idGaraje, g.ubiGaraje,
+                       (SELECT COUNT(*) FROM estaciona e WHERE e.idGaraje = g.idGaraje) AS vehiculosEstacionados
+                FROM garaje g
+                ORDER BY g.idGaraje ASC';
+        return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
+    }
+
+    public function obtenerGaraje(int $id): ?array
+    {
+        $stmt = $this->conexion->prepare('SELECT idGaraje, ubiGaraje FROM garaje WHERE idGaraje = ?');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc() ?: null;
+    }
+
+    public function crearGaraje(string $ubicacion): array
+    {
+        $stmt = $this->conexion->prepare('INSERT INTO garaje (ubiGaraje) VALUES (?)');
+        $stmt->bind_param('s', $ubicacion);
+        $stmt->execute();
+        return [
+            'idGaraje' => (int) $this->conexion->insert_id,
+            'ubiGaraje' => $ubicacion,
+        ];
+    }
+
+    public function actualizarGaraje(int $id, string $ubicacion): ?array
+    {
+        $stmt = $this->conexion->prepare('UPDATE garaje SET ubiGaraje = ? WHERE idGaraje = ?');
+        $stmt->bind_param('si', $ubicacion, $id);
+        $stmt->execute();
+        return $this->obtenerGaraje($id);
+    }
+
+    public function eliminarGaraje(int $id): bool
+    {
+        $stmtEst = $this->conexion->prepare('DELETE FROM estaciona WHERE idGaraje = ?');
+        $stmtEst->bind_param('i', $id);
+        $stmtEst->execute();
+
+        $stmt = $this->conexion->prepare('DELETE FROM garaje WHERE idGaraje = ?');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        return $stmt->affected_rows > 0;
+    }
+
+    public function listarEstacionamientos(): array
+    {
+        $sql = 'SELECT e.idEstacion, e.idGaraje, e.idVehi, e.horaEstacionamiento,
+                       g.ubiGaraje,
+                       v.matriculaVehi, v.marcaVehi, v.modeloVehi, v.tipoVehi, v.estVehi
+                FROM estaciona e
+                INNER JOIN garaje g ON g.idGaraje = e.idGaraje
+                INNER JOIN vehiculo v ON v.idVehi = e.idVehi
+                ORDER BY e.horaEstacionamiento DESC';
+        return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
+    }
+
+    public function estacionarVehiculo(int $idVehi, int $idGaraje): array
+    {
+        $vehiculo = $this->obtenerVehi($idVehi);
+        if (!$vehiculo) {
+            throw new OutOfBoundsException('El vehículo no existe.');
+        }
+        $garaje = $this->obtenerGaraje($idGaraje);
+        if (!$garaje) {
+            throw new OutOfBoundsException('El garaje no existe.');
+        }
+
+        // Registrar en tabla nativa estaciona
+        $stmt = $this->conexion->prepare('INSERT INTO estaciona (idGaraje, idVehi, horaEstacionamiento) VALUES (?, ?, NOW())');
+        $stmt->bind_param('ii', $idGaraje, $idVehi);
+        $stmt->execute();
+
+        // Actualizar vehículo a disponible si no está roto
+        if ($vehiculo['estVehi'] !== 'roto') {
+            $this->conexion->query("UPDATE vehiculo SET estVehi = 'disponible' WHERE idVehi = {$idVehi}");
+        }
+
+        return [
+            'idEstacion' => (int) $this->conexion->insert_id,
+            'idGaraje' => $idGaraje,
+            'idVehi' => $idVehi,
+            'mensaje' => 'Vehículo estacionado correctamente en garaje.'
+        ];
+    }
+
+    // =========================================================================
+    // CU-27 / CU-28 / Narrativa 10: Centros de Reparación y Mantenimiento
+    // =========================================================================
+
+    public function listarTalleres(): array
+    {
+        $sql = 'SELECT m.idMant, m.ubiMant,
+                       (SELECT COUNT(*) FROM repara r WHERE r.idMant = m.idMant AND r.horaSalida IS NULL) AS vehiculosEnReparacion
+                FROM mantenimiento m
+                ORDER BY m.idMant ASC';
+        return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
+    }
+
+    public function obtenerTaller(int $id): ?array
+    {
+        $stmt = $this->conexion->prepare('SELECT idMant, ubiMant FROM mantenimiento WHERE idMant = ?');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc() ?: null;
+    }
+
+    public function crearTaller(string $ubicacion): array
+    {
+        $stmt = $this->conexion->prepare('INSERT INTO mantenimiento (ubiMant) VALUES (?)');
+        $stmt->bind_param('s', $ubicacion);
+        $stmt->execute();
+        return [
+            'idMant' => (int) $this->conexion->insert_id,
+            'ubiMant' => $ubicacion,
+        ];
+    }
+
+    public function actualizarTaller(int $id, string $ubicacion): ?array
+    {
+        $stmt = $this->conexion->prepare('UPDATE mantenimiento SET ubiMant = ? WHERE idMant = ?');
+        $stmt->bind_param('si', $ubicacion, $id);
+        $stmt->execute();
+        return $this->obtenerTaller($id);
+    }
+
+    public function eliminarTaller(int $id): bool
+    {
+        $stmtRep = $this->conexion->prepare('DELETE FROM repara WHERE idMant = ?');
+        $stmtRep->bind_param('i', $id);
+        $stmtRep->execute();
+
+        $stmt = $this->conexion->prepare('DELETE FROM mantenimiento WHERE idMant = ?');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        return $stmt->affected_rows > 0;
+    }
+
+    public function listarReparaciones(): array
+    {
+        $sql = 'SELECT r.idReparacion, r.idMant, r.idVehi, r.horaIngreso, r.horaSalida, r.estadoReparacion,
+                       m.ubiMant,
+                       v.matriculaVehi, v.marcaVehi, v.modeloVehi, v.tipoVehi
+                FROM repara r
+                INNER JOIN mantenimiento m ON m.idMant = r.idMant
+                INNER JOIN vehiculo v ON v.idVehi = r.idVehi
+                ORDER BY r.horaIngreso DESC';
+        return $this->conexion->query($sql)->fetch_all(MYSQLI_ASSOC);
+    }
+
+    public function registrarMantenimiento(int $idVehi, int $idMant, string $motivo): array
+    {
+        $vehiculo = $this->obtenerVehi($idVehi);
+        if (!$vehiculo) {
+            throw new OutOfBoundsException('El vehículo no existe.');
+        }
+        $taller = $this->obtenerTaller($idMant);
+        if (!$taller) {
+            throw new OutOfBoundsException('El centro de reparación no existe.');
+        }
+
+        // Si el vehículo estaba asignado en opera para hoy, se desasigna
+        $delOp = $this->conexion->prepare('DELETE FROM opera WHERE idVehi = ? AND fchOperacion = CURDATE()');
+        $delOp->bind_param('i', $idVehi);
+        $delOp->execute();
+
+        // Registrar en tabla nativa 'repara'
+        $estadoRep = 'en reparacion';
+        $stmt = $this->conexion->prepare('INSERT INTO repara (idMant, idVehi, horaIngreso, estadoReparacion) VALUES (?, ?, NOW(), ?)');
+        $stmt->bind_param('iis', $idMant, $idVehi, $estadoRep);
+        $stmt->execute();
+
+        // Marcar vehículo como roto / inactivo
+        $this->conexion->query("UPDATE vehiculo SET estVehi = 'roto' WHERE idVehi = {$idVehi}");
+
+        return [
+            'idReparacion' => (int) $this->conexion->insert_id,
+            'idMant' => $idMant,
+            'idVehi' => $idVehi,
+            'estadoReparacion' => $estadoRep,
+            'mensaje' => 'Ingreso a taller registrado con éxito. Vehículo marcado en reparación.'
+        ];
+    }
+
+    public function finalizarMantenimiento(int $idReparacion): array
+    {
+        $stmtCheck = $this->conexion->prepare('SELECT idReparacion, idVehi, horaSalida FROM repara WHERE idReparacion = ?');
+        $stmtCheck->bind_param('i', $idReparacion);
+        $stmtCheck->execute();
+        $rep = $stmtCheck->get_result()->fetch_assoc();
+        if (!$rep) {
+            throw new OutOfBoundsException('El registro de reparación no existe.');
+        }
+
+        $idVehi = (int) $rep['idVehi'];
+
+        // Actualizar repara
+        $stmtUpd = $this->conexion->prepare("UPDATE repara SET horaSalida = NOW(), estadoReparacion = 'reparado' WHERE idReparacion = ?");
+        $stmtUpd->bind_param('i', $idReparacion);
+        $stmtUpd->execute();
+
+        // Volver vehículo a disponible
+        $this->conexion->query("UPDATE vehiculo SET estVehi = 'disponible' WHERE idVehi = {$idVehi}");
+
+        return [
+            'idReparacion' => $idReparacion,
+            'idVehi' => $idVehi,
+            'estadoReparacion' => 'reparado',
+            'mensaje' => 'Mantenimiento finalizado. Vehículo devuelto a disponibilidad operativa.'
         ];
     }
 }

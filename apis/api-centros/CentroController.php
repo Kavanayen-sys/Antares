@@ -114,10 +114,43 @@ class CentroController
         return $this->modelo->listarVertederos();
     }
 
-    public function guardarVertedero(array $datos): array
+    public function guardarVertedero(array $datos, int $id = 0): array
     {
         $ubicacion = $this->texto($datos, 'ubicacion', 150);
+        if ($id > 0) {
+            $v = $this->modelo->actualizarVertedero($id, $ubicacion);
+            if (!$v) {
+                throw new OutOfBoundsException('El vertedero no existe.');
+            }
+            return $v;
+        }
         return $this->modelo->crearVertedero(['ubicacion' => $ubicacion]);
+    }
+
+    public function eliminarVertedero(int $id): bool
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException('ID de vertedero inválido.');
+        }
+        return $this->modelo->eliminarVertedero($id);
+    }
+
+    public function listarEnviosVertedero(): array
+    {
+        return $this->modelo->listarEnviosVertedero();
+    }
+
+    public function registrarEnvioVertedero(array $datos): array
+    {
+        $idCentro = filter_var($datos['idCentro'] ?? null, FILTER_VALIDATE_INT);
+        $idVertedero = filter_var($datos['idVertedero'] ?? null, FILTER_VALIDATE_INT);
+        if (!$idCentro || $idCentro <= 0) {
+            throw new InvalidArgumentException('Centro de acopio inválido.');
+        }
+        if (!$idVertedero || $idVertedero <= 0) {
+            throw new InvalidArgumentException('Vertedero inválido.');
+        }
+        return $this->modelo->registrarEnvioVertedero((int) $idCentro, (int) $idVertedero);
     }
 
     public function registrarLlegadaCamion(array $datos): array
